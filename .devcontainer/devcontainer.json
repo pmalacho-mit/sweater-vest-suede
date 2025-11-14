@@ -1,0 +1,14 @@
+{
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.tabSize": 2
+      }
+    }
+  },
+  "features": {
+    "ghcr.io/pmalacho-mit/devcontainer-features/git-subrepo:latest": {}
+  },
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04"
+}
