@@ -1,1 +1,4 @@
-export { default as Sweater } from "./Sweater.svelte";
+import Sweater from "./Sweater.svelte";
+
+export default Sweater;
+export { Sweater };
