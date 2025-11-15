@@ -1,6 +1,5 @@
 <script lang="ts" module>
   export type Props = {
-    theme?: Theme;
     orientation?: "HORIZONTAL" | "VERTICAL";
     mode?: RunnerProps["mode"];
   };
@@ -78,12 +77,11 @@
     GridView,
     type PanelProps,
     type ViewAPI,
-    type Theme,
-  } from "@p-buddy/dockview-svelte";
+  } from "../dockview-svelte-suede/";
   import Runner, { type Props as RunnerProps, reset } from "./Runner.svelte";
   import { deferred, onAbort } from "./utils.svelte.js";
 
-  let { orientation = "HORIZONTAL", theme = "dark", mode }: Props = $props();
+  let { orientation = "HORIZONTAL", mode }: Props = $props();
 
   let total = $state(1);
 
@@ -132,7 +130,6 @@
 <div style:width="100vw" style:height={100 / total + "vh"}>
   <GridView
     {orientation}
-    {theme}
     snippets={{ child }}
     onReady={({ api }) => resolve(api)}
   />
