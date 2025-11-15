@@ -1,13 +1,28 @@
 {
   "customizations": {
     "vscode": {
+      "extensions": [
+        "ms-vscode.vscode-typescript-next",
+        "esbenp.prettier-vscode",
+        "svelte.svelte-vscode"
+      ],
       "settings": {
+        "[svelte]": {
+          "editor.defaultFormatter": "svelte.svelte-vscode"
+        },
+        "[typescript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
         "editor.formatOnSave": true,
-        "editor.tabSize": 2
+        "editor.tabSize": 2,
+        "svelte.enable-ts-plugin": true
       }
     }
   },
   "features": {
+    "ghcr.io/devcontainers/features/node:latest": {
+      "version": "20"
+    },
     "ghcr.io/guiyomh/features/vim:0": {},
     "ghcr.io/pmalacho-mit/devcontainer-features/git-subrepo:latest": {}
   },
