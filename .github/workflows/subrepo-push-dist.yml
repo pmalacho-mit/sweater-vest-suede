@@ -13,20 +13,6 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-          
-      - name: Ensure jq is installed (optional)
-        run: sudo apt-get update && sudo apt-get install -y jq
-        
-      - name: Populate dependency artifacts
-        shell: bash
-        run: |
-          bash -c "$(curl -fsSL https://raw.githubusercontent.com/pmalacho-mit/subrepo-dependency-management/refs/heads/main/scripts/populate-dependencies.sh)"
-            
-      - name: Install git-subrepo
-        run: |
-          git clone https://github.com/ingydotnet/git-subrepo ~/.git-subrepo
-          source ~/.git-subrepo/.rc
-          git subrepo --version
 
       - name: Set up Git user
         run: |
@@ -36,6 +22,29 @@ jobs:
       - name: Configure Git credentials
         run: |
           git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+
+      - name: Ensure jq is installed (optional)
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Populate dependency artifacts
+        shell: bash
+        run: |
+          bash -c "$(curl -fsSL https://raw.githubusercontent.com/pmalacho-mit/subrepo-dependency-management/refs/heads/main/scripts/populate-dependencies.sh)"
+
+      - name: Commit dependency changes
+        run: |
+          if [ -n "$(git status --porcelain dist/.dependencies/)" ]; then
+            git add dist/.dependencies/
+            git commit -m "chore(suede): update dependency artifacts"
+          else
+            echo "No dependency changes to commit"
+          fi
+
+      - name: Install git-subrepo
+        run: |
+          git clone https://github.com/ingydotnet/git-subrepo ~/.git-subrepo
+          source ~/.git-subrepo/.rc
+          git subrepo --version
 
       - name: Pull (to integrate) then push
         run: |
