@@ -1,6 +1,19 @@
 <script lang="ts" module>
+  import {
+    type PanelProps,
+    type ViewAPI,
+    type Theme,
+  } from "../dockview-svelte-suede";
+  const orientations = {
+    horizontal: "HORIZONTAL",
+    vertical: "VERTICAL",
+  } as const;
+
+  type Orientation = keyof typeof orientations;
+
   export type Props = {
-    orientation?: "HORIZONTAL" | "VERTICAL";
+    theme?: Theme;
+    orientation?: Orientation;
     mode?: RunnerProps["mode"];
   };
 
@@ -16,17 +29,28 @@
 
   const id = (index: number) => `vest-${index}` satisfies Options["id"];
 
-  const position = (index: number, props: RunnerProps): Options["position"] =>
+  const defaultDirection = (orientation: Orientation) =>
+    orientation === "horizontal" ? "right" : "below";
+
+  const position = (
+    index: number,
+    props: RunnerProps,
+    orientation: Orientation
+  ): Options["position"] =>
     index === 0
       ? undefined
       : {
-          direction: props.position ?? "right",
+          direction: props.position ?? defaultDirection(orientation),
           referencePanel: id(index - 1),
         };
 
-  const options = (index: number, props: RunnerProps): Options => ({
+  const options = (
+    index: number,
+    props: RunnerProps,
+    orientation: Orientation
+  ): Options => ({
     id: id(index),
-    position: position(index, props),
+    position: position(index, props, orientation),
   });
 
   let version = 0;
@@ -70,22 +94,18 @@
     controller.abort();
     reset();
   };
+
+  let total = $state(1);
+  export const setTotal = (n: number) => (total = n);
+  const heightPercentage = $derived(100 / total);
 </script>
 
 <script lang="ts">
-  import {
-    GridView,
-    type PanelProps,
-    type ViewAPI,
-  } from "../dockview-svelte-suede/";
+  import { GridView } from "../dockview-svelte-suede";
   import Runner, { type Props as RunnerProps, reset } from "./Runner.svelte";
   import { deferred, onAbort } from "./utils.svelte.js";
 
-  let { orientation = "HORIZONTAL", mode }: Props = $props();
-
-  let total = $state(1);
-
-  export const setTotal = (n: number) => (total = n);
+  let { orientation = "horizontal", theme = "dark", mode }: Props = $props();
 
   let count = 0;
 
@@ -104,7 +124,7 @@
     const index = count++;
     props = withDefaults(props);
     warnIfFirstAndHasPosition(index, props);
-    api.addSnippetPanel("child", props, options(index, props));
+    api.addSnippetPanel("child", props, options(index, props, orientation));
   };
 </script>
 
@@ -127,10 +147,13 @@
   />
 {/snippet}
 
-<div style:width="100vw" style:height={100 / total + "vh"}>
+<div
+  style:width="max(100%, 100vw)"
+  style:height={`max(${heightPercentage}%, ${heightPercentage}vh)`}
+>
   <GridView
-    {orientation}
     snippets={{ child }}
     onReady={({ api }) => resolve(api)}
+    orientation={orientations[orientation]}
   />
 </div>

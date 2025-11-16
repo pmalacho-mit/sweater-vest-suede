@@ -1,13 +1,20 @@
 import { getContext, setContext, type Component, mount } from "svelte";
 import type Container from "./Container.svelte";
-import { toPng, toJpeg, toBlob, toPixelData, toSvg, toCanvas } from "html-to-image";
+import {
+  toPng,
+  toJpeg,
+  toBlob,
+  toPixelData,
+  toSvg,
+  toCanvas,
+} from "html-to-image";
 
 export type Fn = (...args: any[]) => any;
 
 export type ValueOrGetter<T> = T | (() => T);
 
 /** Can be replaced in the future with `Promise.withResolvers` */
-export const deferred = <T,>() => {
+export const deferred = <T>() => {
   let resolve!: (value: T | PromiseLike<T>) => void;
   let reject!: (reason?: any) => void;
 
@@ -21,7 +28,7 @@ export const deferred = <T,>() => {
 
 export type Deferred<T> = ReturnType<typeof deferred<T>>;
 
-export const retrieve = <Key,>(map: Map<Key, Deferred<any>>, key: Key) => {
+export const retrieve = <Key>(map: Map<Key, Deferred<any>>, key: Key) => {
   if (map.has(key)) {
     const existing = map.get(key)!;
     map.delete(key);
@@ -37,7 +44,7 @@ export class PromiseQueue {
     Task: Record<"start" | "complete", Promise<any>> & {
       mode: "serial" | "parallel";
     };
-  }
+  };
 
   private readonly root: Deferred<void>;
   private tail?: Required<PromiseQueue>["Types"]["Task"];
@@ -48,9 +55,13 @@ export class PromiseQueue {
 
   open() {
     this.root.resolve();
+    return this;
   }
 
-  add(mode: Required<PromiseQueue>["Types"]["Task"]["mode"], fn: () => Promise<any>) {
+  add(
+    mode: Required<PromiseQueue>["Types"]["Task"]["mode"],
+    fn: () => Promise<any>
+  ) {
     let task: Required<PromiseQueue>["Types"]["Task"];
 
     if (!this.tail) {
@@ -72,13 +83,13 @@ export class PromiseQueue {
     });
 
     this.tail = task;
-    return task.start;
-  };
+    return task;
+  }
 }
 
 type ContainerMapSupplement = {
   total: number;
-  find(index: number): Container;
+  find(index: number): Container | undefined;
   set current(container: Container);
   get context(): Container | undefined;
   each(callback: (container: Container) => void): void;
@@ -92,66 +103,68 @@ type ContainerMap = Record<number, Container> &
 export const createContainerMap = () => {
   const contextKey = "container";
   const contexts: Container[] = [];
-  return new Proxy(
-    new Map<number, Container>() as ContainerMap,
-    {
-      get(target, prop) {
-        const key = prop as keyof ContainerMapSupplement;
+  return new Proxy(new Map<number, Container>() as ContainerMap, {
+    get(target, prop) {
+      const key = prop as keyof ContainerMapSupplement;
 
-        switch (key) {
-          case "context":
-            return getContext(contextKey) satisfies ContainerMap[typeof key];
-          case "find":
-            return ((index: number) => {
-              while (!target.has(index) && index >= 0) index--;
-              const container = target.get(index);
-              if (!container) throw new Error(`No container found at index ${index}`);
-              return container;
-            }) satisfies ContainerMap[typeof key];
-          case "total":
-            return (target.size + contexts.length) satisfies ContainerMap[typeof key];
-          case "each":
-            return ((callback: (container: Container) => void) => {
-              for (const container of target.values()) callback(container);
-              for (const context of contexts) callback(context);
-            }) satisfies ContainerMap[typeof key];
-          case "reset":
-            return (() => {
-              target.clear();
-              contexts.length = 0;
-            }) satisfies ContainerMap[typeof key];
-        }
+      switch (key) {
+        case "context":
+          return getContext(contextKey) satisfies ContainerMap[typeof key];
+        case "find":
+          return ((index: number) => {
+            while (!target.has(index) && index >= 0) index--;
+            const container = target.get(index);
+            return container;
+          }) satisfies ContainerMap[typeof key];
+        case "total":
+          return (target.size +
+            contexts.length) satisfies ContainerMap[typeof key];
+        case "each":
+          return ((callback: (container: Container) => void) => {
+            for (const container of target.values()) callback(container);
+            for (const context of contexts) callback(context);
+          }) satisfies ContainerMap[typeof key];
+        case "reset":
+          return (() => {
+            target.clear();
+            contexts.length = 0;
+          }) satisfies ContainerMap[typeof key];
+      }
 
-        const numeric = parseInt(String(prop));
-        if (isNaN(numeric)) return target[prop as keyof typeof target];
-        return target.get(numeric);
-      },
-      set(target, prop, value) {
-        const key = prop as keyof ContainerMapSupplement;
+      const numeric = parseInt(String(prop));
+      if (isNaN(numeric)) return target[prop as keyof typeof target];
+      return target.get(numeric);
+    },
+    set(target, prop, value) {
+      const key = prop as keyof ContainerMapSupplement;
 
-        switch (key) {
-          case "current":
-            const current = value as ContainerMap[typeof key];
-            setContext(contextKey, current);
-            contexts.push(value);
-            return true;
-        }
+      switch (key) {
+        case "current":
+          const current = value as ContainerMap[typeof key];
+          setContext(contextKey, current);
+          contexts.push(value);
+          return true;
+      }
 
-        const numeric = parseInt(String(prop));
-        if (isNaN(numeric)) return true;
-        target.set(numeric, value);
-        return true;
-      },
-    })
-}
+      const numeric = parseInt(String(prop));
+      if (isNaN(numeric)) return true;
+      target.set(numeric, value);
+      return true;
+    },
+  });
+};
 
 export type ExtractFromComponent<T extends Component<any, any, any>> =
   T extends Component<infer Props, infer Exports, infer Bindings>
-  /**/ ? { props: Props; exports: Exports; bindings: Bindings }
-  /**/ : never;
+    ? /**/ { props: Props; exports: Exports; bindings: Bindings }
+    : /**/ never;
 
-export type Mounted<T extends Component<any, any, any>> =
-  ReturnType<typeof mount<ExtractFromComponent<T>["props"], ExtractFromComponent<T>["exports"]>>;
+export type Mounted<T extends Component<any, any, any>> = ReturnType<
+  typeof mount<
+    ExtractFromComponent<T>["props"],
+    ExtractFromComponent<T>["exports"]
+  >
+>;
 
 export class TestAborted extends Error {
   constructor(message: string = "Test aborted") {
@@ -171,33 +184,35 @@ export const createTestAbortMechanism = () => {
     return true;
   };
 
-  const wrap = <T extends Fn>(fn: ReturnType<T> extends Promise<any> ? never : T) =>
-    (...args: Parameters<T>) => tryError() && fn(...args);
+  const wrap =
+    <T extends Fn>(fn: ReturnType<T> extends Promise<any> ? never : T) =>
+    (...args: Parameters<T>) =>
+      tryError() && fn(...args);
 
   const on = onAbort.bind(null, signal);
 
   const until = new Promise<void>(on);
 
-  const proxy = <T extends object>(_target: T) => new Proxy(_target, {
-    get(target, prop) {
-      return tryError() && target[prop as keyof T];
-    },
-    set(target, prop, value) {
-      target[prop as keyof T] = value;
-      return tryError();
-    }
-  });
-
+  const proxy = <T extends object>(_target: T) =>
+    new Proxy(_target, {
+      get(target, prop) {
+        return tryError() && target[prop as keyof T];
+      },
+      set(target, prop, value) {
+        target[prop as keyof T] = value;
+        return tryError();
+      },
+    });
 
   return { signal, tryError, wrap, until, controller, proxy, on };
-}
+};
 
 export const downloadURI = (dataurl: string, filename: string) => {
   const link = document.createElement("a");
   link.href = dataurl;
   link.download = filename;
   link.click();
-}
+};
 
 const capturers = {
   png: toPng,
@@ -215,19 +230,21 @@ export const createCapturer = (root: HTMLElement) => {
   type Capture<T extends CaptureKey> = ReturnType<CaptureType<T>>;
 
   type CapturedAsString = {
-    [k in keyof typeof capturers]:
-    Capture<k> extends Promise<infer U>
-    /**/ ? U extends string
-      /**/ ? k
-      /**/ : never
-    /**/ : never
+    [k in keyof typeof capturers]: Capture<k> extends Promise<infer U>
+      ? /**/ U extends string
+        ? /**/ k
+        : /**/ never
+      : /**/ never;
   }[keyof typeof capturers];
 
   type Return<T extends CaptureKey> = T extends CapturedAsString
-    /**/ ? { uri: Capture<T>, download: (filename: string) => Promise<void> }
-    /**/ : Capture<T>
+    ? /**/ { uri: Capture<T>; download: (filename: string) => Promise<void> }
+    : /**/ Capture<T>;
 
-  return <T extends CaptureKey>(type: T, options?: CaptureOptions<T>): Return<T> => {
+  return <T extends CaptureKey>(
+    type: T,
+    options?: CaptureOptions<T>
+  ): Return<T> => {
     const value = capturers[type](root, options);
 
     switch (type) {
@@ -237,7 +254,8 @@ export const createCapturer = (root: HTMLElement) => {
         const uri = value as Promise<string>;
         return {
           uri,
-          download: (filename: string) => uri.then((uri) => downloadURI(uri, filename))
+          download: (filename: string) =>
+            uri.then((uri) => downloadURI(uri, filename)),
         } satisfies Return<CapturedAsString> as Return<T>;
       case "blob":
       case "pixelData":
@@ -246,7 +264,9 @@ export const createCapturer = (root: HTMLElement) => {
     }
 
     throw new Error(`Unsupported capture type: ${type}`);
-  }
+  };
 };
 
 export const untilNextFrame = () => new Promise(requestAnimationFrame);
+export const untilMilliseconds = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
