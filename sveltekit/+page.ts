@@ -1,7 +1,7 @@
 import type { PageLoad } from "./$types";
 
 const extension = ".test.svelte";
-/** (assumes this file is located in src/routes/tests/[...path]) */
+/** (assumes this file is located in src/routes/tests/[...path], and thus lib is 3 levels down) */
 const relativeLib = "../../../lib";
 
 const pathToTestComponent = (path: string) => {
