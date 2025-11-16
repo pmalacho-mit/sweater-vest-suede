@@ -38,7 +38,7 @@ import type {
 } from "./types.js";
 import PanelRendererBase from "./PanelRendererBase.js";
 import ReactivePanelUpdater from "./reactivity.svelte.js";
-import { Theme } from "./themes";
+import type { Theme } from "./themes";
 
 /**
  * The props for the React version of the different view components
