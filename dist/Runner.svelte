@@ -10,6 +10,7 @@
     untilNextFrame,
     TestAborted,
     type ValueOrGetter,
+    untilMilliseconds,
   } from "./utils.svelte.js";
   import { type Snippet, flushSync } from "svelte";
 
@@ -49,16 +50,25 @@
     (getter: () => Partial<T>): Flush;
   }
 
-  type TestHarness<T extends PocketElements> = {
+  type DelayKey = "seconds" | "milliseconds" | "minutes" | "frames";
+  type Delay = {
+    [K in DelayKey]: { [P in K]: number };
+  }[DelayKey];
+
+  export type TestHarness<T extends PocketElements> = {
     given: (...keys: (keyof T)[]) => Promise<Pick<T, (typeof keys)[number]>>;
     set: Setter<T>;
-    root: HTMLElement;
+    container: HTMLElement;
     preventRender: () => () => void;
     signal: AbortSignal;
     onAbort: (fn: () => void) => void;
     capture: ReturnType<typeof createCapturer>;
     untilNextFrame: typeof untilNextFrame;
-  } & typeof test;
+    delay: (amount: Delay) => Promise<void>;
+    withUserFocus: (
+      fn: (userEvent: typeof test.userEvent) => Promise<void>
+    ) => Promise<void>;
+  } & Omit<typeof test, "userEvent">;
 
   type Mode = Required<PromiseQueue>["Types"]["Task"]["mode"];
 
@@ -89,6 +99,27 @@
 Make sure to call \`harness.preventRender()\` at the top of your body function before anything is \`await\`ed.`;
     throw new Error(msg);
   };
+
+  const userFocusQueue = new PromiseQueue().open();
+  const withUserFocus = (
+    fn: (userEvent: typeof test.userEvent) => Promise<void>
+  ) => userFocusQueue.add("serial", () => fn(test.userEvent)).complete;
+
+  const delay = async (amount: Delay): Promise<void> => {
+    if ("frames" in amount) {
+      while (amount.frames--) await untilNextFrame();
+      return;
+    }
+    return untilMilliseconds(
+      "milliseconds" in amount
+        ? amount.milliseconds
+        : "seconds" in amount
+          ? amount.seconds * 1000
+          : "minutes" in amount
+            ? amount.minutes * 60 * 1000
+            : 0
+    );
+  };
 </script>
 
 <script lang="ts" generics="T extends PocketElements">
@@ -108,7 +139,7 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
   const subscriberMap = new Map<MapKey, Subscriber>();
   const deferredMap = new Map<MapKey, Deferred<any>>();
 
-  let root = $state.raw<HTMLDivElement>();
+  let container = $state.raw<HTMLDivElement>();
   let gate = $state.raw<Promise<any>>();
   let prevented = $state(manual);
 
@@ -131,25 +162,27 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
 
   const abort = createTestAbortMechanism();
 
-  const setValue = (obj: Partial<T>) =>
+  const apply = (obj: Partial<T>) =>
     Object.entries(obj).forEach(([key, value]) => {
       pocket[key as keyof T] = value;
     });
 
+  const reactiveSubscriber = (getter: () => Partial<T>) =>
+    createSubscriber((update) =>
+      $effect.root(() => {
+        $effect(() => (apply(getter()), update()));
+      })
+    );
+
   const set: Harness["set"] = abort.wrap(
     (payload: ValueOrGetter<Partial<T>>) => {
-      if (typeof payload !== "function") return setValue(payload);
-      for (const key of Object.keys(payload()))
-        subscriberMap.set(
-          key,
-          createSubscriber((update) =>
-            $effect.root(() => {
-              $effect(() => (setValue(payload()), update()));
-            }),
-          ),
-        );
+      if (typeof payload !== "function") return apply(payload);
+      const states = payload();
+      for (const key of Object.keys(states))
+        subscriberMap.set(key, reactiveSubscriber(payload));
+      apply(states);
       return () => flushSync();
-    },
+    }
   );
 
   const given: Harness["given"] = async (...keys) => {
@@ -164,7 +197,7 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
           (acc as any)[keys[index]] = curr;
           return acc;
         },
-        {} as Pick<T, (typeof keys)[number]>,
+        {} as Pick<T, (typeof keys)[number]>
       );
   };
 
@@ -178,11 +211,11 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
   const { controller, signal, on: onAbort } = abort;
 
   onMount(async () => {
-    if (!root) throw new Error("Root element not found");
-    const capture = createCapturer(root);
+    if (!container) throw new Error("Container element not found");
+    const capture = createCapturer(container);
     const harness: TestHarness<T> = abort.proxy({
       ...test,
-      root,
+      container,
       signal,
       set,
       given,
@@ -190,6 +223,8 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
       capture,
       onAbort,
       untilNextFrame,
+      withUserFocus,
+      delay,
     });
 
     gate = queue.add(mode, () => {
@@ -206,14 +241,14 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
           console.error(e); // do something with the error
           throw e;
         });
-    });
+    }).start;
 
     queue.open();
   });
 </script>
 
-<div bind:this={root}>
-  {#if root && gate}
+<div bind:this={container}>
+  {#if container && gate}
     {#await gate then}
       {#if !prevented}
         {@render vest(pocket)}
