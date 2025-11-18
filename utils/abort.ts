@@ -6,7 +6,7 @@ export class TestAborted extends Error {
   }
 }
 
-export const onAbort = (signal: AbortSignal, fn: () => void) =>
+export const onAbort = (signal: AbortSignal, fn: (this: AbortSignal) => void) =>
   signal.addEventListener("abort", fn, { once: true });
 
 export const createTestAbortMechanism = () => {

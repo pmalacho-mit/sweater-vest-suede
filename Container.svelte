@@ -1,9 +1,5 @@
 <script lang="ts" module>
-  import {
-    type PanelProps,
-    type ViewAPI,
-    type Theme,
-  } from "../dockview-svelte-suede";
+  import { type PanelProps, type ViewAPI } from "../dockview-svelte-suede";
   import "../dockview-svelte-suede/styles/dockview.css";
 
   const orientations = {
@@ -16,6 +12,8 @@
   export type Props = {
     orientation?: Orientation;
     mode?: RunnerProps["mode"];
+    class?: string;
+    style?: string;
   };
 
   const warnIfFirstAndHasPosition = (index: number, props: RunnerProps) => {
@@ -107,7 +105,7 @@
   import { defer } from "./utils";
   import { onAbort } from "./utils/abort";
 
-  let { orientation = "horizontal", mode }: Props = $props();
+  let { orientation = "horizontal", mode, ...rest }: Props = $props();
 
   let count = 0;
 
@@ -150,6 +148,7 @@
 {/snippet}
 
 <div
+  {...rest}
   style:width="max(100%, 100vw)"
   style:height={`max(${heightPercentage}%, ${heightPercentage}vh)`}
 >

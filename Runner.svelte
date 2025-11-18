@@ -9,32 +9,67 @@
 
   import { type Snippet } from "svelte";
 
-  export type PocketElements = Record<string, any>;
+  export type Pocket = Record<string, any>;
 
   type DelayKey = "seconds" | "milliseconds" | "minutes" | "frames";
   type Delay = {
     [K in DelayKey]: { [P in K]: number };
   }[DelayKey];
 
-  export type TestHarness<T extends PocketElements> = {
-    set: <T>(payload: T) => T;
+  /* pd: harness-docs */
+  export type TestHarness<Pocket extends Record<string, any>> = {
+    /**
+     * Sets the pocket instance passed to the vest snippet.
+     * Returns the pocket for convenience.
+     */
+    set: (pocket: Pocket) => Pocket;
+    /**
+     * The container element holding the rendered vest snippet.
+     */
     container: HTMLElement;
+    /**
+     * Prevents rendering until the returned function is called.
+     * Invoke before any `await` within test body to prevent initial render.
+     */
     preventRender: () => () => void;
-    signal: AbortSignal;
-    onAbort: (fn: () => void) => void;
+    /**
+     * Registers a callback to run when the test is aborted.
+     */
+    onAbort: (fn: (this: AbortSignal) => void) => void;
+    /**
+     * Utilities for capturing the visual state of the `container` element.
+     * @returns `{ toPng(), toSvg(), toJpeg(), toBlob(), toCanvas(), toPixelData() }`
+     */
     capture: ReturnType<typeof createCapturer>;
+    /**
+     * Utility for awaiting a specified amount of time.
+     * @example await harness.delay({ seconds: 2 });
+     */
     delay: (amount: Delay) => Promise<void>;
-    definition: <Keys extends keyof T>(
+    /**
+     * Waits for specified `Pocket` fields to be defined (not null/undefined).
+     * **NOTE:** fields must be `$state` runes to work correctly.
+     * @example const { a, b } = await harness.definition("a", "b");
+     */
+    definition: <Keys extends keyof Pocket>(
       ...keys: Keys[]
-    ) => Promise<{ [K in Keys]: Exclude<T[K], undefined | null> }>;
+    ) => Promise<{ [K in Keys]: NonNullable<Pocket[K]> }>;
+    /**
+     * Queues user interactions to run serially with access to userEvent.
+     * @example await harness.withUserFocus(async (userEvent) => {
+     *            await userEvent.click(button);
+     *          });
+     * This should be used in place of `import("@storybook/test").userEvent`.
+     */
     withUserFocus: (
       fn: (userEvent: typeof test.userEvent) => Promise<void>
     ) => Promise<void>;
-  } & Omit<typeof test, "userEvent">;
+  } & Omit<typeof import("@storybook/test"), "userEvent">;
+  /* pd: harness-docs */
 
   type Mode = Required<PromiseQueue>["Types"]["Task"]["mode"];
 
-  export type Props<T extends PocketElements = PocketElements> = {
+  export type Props<T extends Pocket = Pocket> = {
     vest: Snippet<[pocket: T]>;
     body: (harness: TestHarness<T>) => Promise<void>;
     name?: string;
@@ -90,7 +125,7 @@
   const defined = <T,>(value: T | undefined | null): value is T =>
     value !== undefined && value !== null;
 
-  const subscribeToDefinition = <T extends PocketElements, K extends keyof T>(
+  const subscribeToDefinition = <T extends Pocket, K extends keyof T>(
     pocket: T,
     key: K,
     cleanup: Set<() => void>
@@ -110,7 +145,7 @@
   };
 </script>
 
-<script lang="ts" generics="T extends PocketElements">
+<script lang="ts" generics="T extends Pocket">
   import { onMount } from "svelte";
 
   let {
@@ -155,8 +190,6 @@
 
     abort.tryError();
 
-    type Return = Required<Pick<T, (typeof keys)[number]>>;
-
     if (Array.isArray(resolved)) return accumulate(keys, resolved);
 
     return void 0 as unknown as Exclude<typeof resolved, void>; // unreachable
@@ -173,7 +206,7 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
     return render;
   });
 
-  const { controller, signal, on: onAbort } = abort;
+  const { controller, on: onAbort } = abort;
 
   onMount(async () => {
     if (!container) throw new Error("Container element not found");
@@ -181,7 +214,6 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
     const harness: TestHarness<T> = abort.proxy({
       ...test,
       container,
-      signal,
       set,
       preventRender,
       capture,

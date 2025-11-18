@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { Props as RunnerProps, PocketElements } from "./Runner.svelte";
+  import type { Props as RunnerProps, Pocket } from "./Runner.svelte";
   import type { Props as ContainerProps } from "./Container.svelte";
   import Container, { next, setTotal } from "./Container.svelte";
   import { onMount, tick, type Snippet } from "svelte";
@@ -12,8 +12,8 @@
     category?: string;
   };
 
-  type Props<T extends PocketElements> =
-    PocketElements extends Required<T>
+  type Props<T extends Pocket> =
+    Pocket extends Required<T>
       ? keyof T extends never
         ? RunnerProps<{}>
         : ConfigProps
@@ -33,19 +33,16 @@
     tests: 0,
     configs: 0,
     total: () => counts.tests + counts.configs,
-    key: <T extends PocketElements>(props: Props<T>) =>
+    key: <T extends Pocket>(props: Props<T>) =>
       is("test", props) ? "tests" : "configs",
-    add: <T extends PocketElements>(props: Props<T>) =>
-      counts[counts.key(props)]++,
-    subtract: <T extends PocketElements>(props: Props<T>) =>
+    add: <T extends Pocket>(props: Props<T>) => counts[counts.key(props)]++,
+    subtract: <T extends Pocket>(props: Props<T>) =>
       counts[counts.key(props)]--,
   };
 
   /* TODO: Determine if this is only true when test is modified and live-reload triggers */
-  const testHasChanged = <T extends PocketElements>(
-    props: Props<T>,
-    index: number
-  ) => is("test", props) && index < 0;
+  const testHasChanged = <T extends Pocket>(props: Props<T>, index: number) =>
+    is("test", props) && index < 0;
 
   const location = () => new URL(window.location.href);
   const testHasChangedParam = "reload-after-test-change";
@@ -68,7 +65,7 @@
   };
 </script>
 
-<script lang="ts" generics="T extends PocketElements">
+<script lang="ts" generics="T extends Pocket">
   let props: Props<T> = $props();
 
   const index = counts.total();
@@ -118,5 +115,10 @@
     display: block !important;
     width: 100vw;
     height: 100vh;
+  }
+
+  :global(.dv-sash) {
+    background-color: black !important;
+    width: 1px !important;
   }
 </style>
