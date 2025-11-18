@@ -52,5 +52,4 @@ jobs:
           source ~/.git-subrepo/.rc
           git subrepo pull dist || true
           git subrepo push dist
-          git subrepo pull dist
           git push
