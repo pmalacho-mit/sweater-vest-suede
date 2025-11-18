@@ -5,6 +5,14 @@ import path from "node:path";
 
 export default defineConfig({
   plugins: [sveltekit()],
+  build: {
+    outDir: "not-applicable",
+  },
+  resolve: {
+    alias: {
+      $dist: path.resolve(__dirname, "dist"),
+    },
+  },
   server: {
     host: "0.0.0.0",
     fs: {
