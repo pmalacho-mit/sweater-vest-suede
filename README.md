@@ -1,8 +1,8 @@
 # Sweater-vest-suede
 
-(<ins style="color:white"><span style="color:#aa1e1e"><span>**S**</span><sup style="color:grey">weater</sup> <span style="color:#aa1e1e">**v**</span><sub style="color:#aa1e1e">_elte_</sub></span> <sub style="">_t_</sub><span style="text-">est</span></ins>)
+Sweater vest (<span style="color:#aa1e1e"><span>**S**</span><sup style="color:grey">weater</sup> <span style="color:#aa1e1e">**v**</span><sub style="color:#aa1e1e">_elte_</sub></span> <sub style="">_t_</sub><span style="text-">est</span>) is a [svelte](https://svelte.dev/) utility that simplifies testing svelte components in browser environments, specifically when you're testing multiple components together and/or within complex markup.
 
-This repo is a [suede dependency](https://github.com/pmalacho-mit/suede). It is a svelte utility (component) that simplifies testing svelte components in browser environments, specifically when you're testing multiple components together and/or within complex markup.
+This repo is a [suede dependency](https://github.com/pmalacho-mit/suede).
 
 To see the installable source code, please checkout the [dist branch](https://github.com/pmalacho-mit/sweater-vest-suede/tree/dist).
 
