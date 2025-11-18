@@ -108,7 +108,7 @@
   import { defer } from "./utils";
   import { onAbort } from "./utils/abort";
 
-  let { orientation = "horizontal", theme = "dark", mode }: Props = $props();
+  let { orientation = "horizontal",  mode }: Props = $props();
 
   let count = 0;
 
