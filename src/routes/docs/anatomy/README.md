@@ -28,7 +28,7 @@ Begin a [Sweater Vest](https://www.npmjs.com/package/sweater-vest) test by utili
 
 ## `vest` Snippet
 
-The `Sweater` component expects a `vest` snippet to be defined which takes a single argument (which is called `pocket` as a convention).
+The `Sweater` component expects a `vest` [snippet](https://svelte.dev/docs/svelte/snippet) to be defined which takes a single argument (which is called `pocket` as a convention).
 
 [](<./+page.svelte?region=extract(component)&apply=recipe(no-body,no-pocket-type,trim-pocket,no-markup)>)
 
@@ -67,7 +67,9 @@ The `harness` argument provides several utilities that help you write your test:
 - **`set`** - Sets the value that will be passed to the [`vest` snippet](#vest-snippet). By convention, this value is called `pocket` and should be an instance of your `Pocket` class.
 - **`definition`** - An async function that waits for elements in your `Pocket` model to be defined (i.e., not null nor undefined). Pass the names of the fields you want to wait for, and it returns a promise that resolves when all those fields are populated by the markup.
 - **`expect`** - The assertion function from `@storybook/test` used to set up your test expectations.
-- Additional utilities like `delay`, `preventRender`, `capture`, and more are available on the harness.
+- Additional utilities like `preventRender` and `capture`, and more are available on the harness.
+
+[](<../../../../dist/Runner.svelte?region=extract(harness-docs)&wrap=dropdown(See-all-utilities-on-harness.)>)
 
 [](<./+page.svelte?region=extract(script,component),replace(snippet,...),splice-start(body,1)&apply=recipe(no-import)>)
 

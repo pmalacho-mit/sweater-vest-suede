@@ -11,7 +11,9 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test:unit": "vitest",
-		"test": "npm run test:unit -- --run"
+		"test": "npm run test:unit -- --run",
+		"doc": "npx @p-buddy/parkdown",
+		"undoc": "npx @p-buddy/parkdown --depopulate --no-inclusions"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^7.0.0",
