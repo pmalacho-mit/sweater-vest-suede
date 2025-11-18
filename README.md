@@ -1,6 +1,8 @@
 # Sweater-vest-suede
 
-This repo is a [suede dependency](https://github.com/pmalacho-mit/suede).
+(<ins style="color:white"><span style="color:#aa1e1e"><span>**S**</span><sup style="color:grey">weater</sup> <span style="color:#aa1e1e">**v**</span><sub style="color:#aa1e1e">_elte_</sub></span> <sub style="">_t_</sub><span style="text-">est</span></ins>)
+
+This repo is a [suede dependency](https://github.com/pmalacho-mit/suede). It is a svelte utility (component) that simplifies testing svelte components in browser environments, specifically when you're testing multiple components together and/or within complex markup.
 
 To see the installable source code, please checkout the [dist branch](https://github.com/pmalacho-mit/sweater-vest-suede/tree/dist).
 
@@ -17,25 +19,27 @@ git subrepo clone --branch dist https://github.com/pmalacho-mit/sweater-vest-sue
 ```
 
 [](./src/routes/docs/anatomy/README.md)
+
 <!-- p↓ BEGIN -->
 <!-- p↓ length lines: 253 chars: 7277 -->
-[](?register=recipe(path)&region=remap(,$dist,_angle_path_unangle__slash_sweater-vest-suede,_))
 
-[](?register=recipe(no-body)&region=splice-end(body,5),splice-start(body,-6),replace(body,'...'))
+[](<?register=recipe(path)&region=remap(,$dist,_angle_path_unangle__slash_sweater-vest-suede,_)>)
 
-[](?register=recipe(no-snippet)&region=replace(snippet,'...'))
+[](<?register=recipe(no-body)&region=splice-end(body,5),splice-start(body,-6),replace(body,'...')>)
 
-[](?register=recipe(no-model)&region=replace(model,...))
+[](<?register=recipe(no-snippet)&region=replace(snippet,'...')>)
 
-[](?register=recipe(trim-pocket)&region=trim(pocket))
+[](<?register=recipe(no-model)&region=replace(model,...)>)
 
-[](?register=recipe(no-pocket-type)&region=splice-end(type,1),replace(type,...))
+[](<?register=recipe(trim-pocket)&region=trim(pocket)>)
 
-[](?register=recipe(no-markup)&region=replace(markup,...))
+[](<?register=recipe(no-pocket-type)&region=splice-end(type,1),replace(type,...)>)
 
-[](?register=recipe(no-template)&region=replace(templated,...))
+[](<?register=recipe(no-markup)&region=replace(markup,...)>)
 
-[](?register=recipe(no-import)&region=replace(import,...))
+[](<?register=recipe(no-template)&region=replace(templated,...)>)
+
+[](<?register=recipe(no-import)&region=replace(import,...)>)
 
 ### Anatomy of a Sweater Vest Test
 
@@ -45,7 +49,8 @@ Jump to the [complete example](#complete) below if you want to see what a Sweate
 
 Begin a [Sweater Vest](https://www.npmjs.com/package/sweater-vest) test by utilizing the `Sweater` component imported from wherever you've installed the source code (the below assumes it's in a `sweater-vest-suede` folder).
 
-[](src/routes/docs/anatomy/+page.svelte?apply=recipe(path,no-body,no-snippet,no-model))
+[](<src/routes/docs/anatomy/+page.svelte?apply=recipe(path,no-body,no-snippet,no-model)>)
+
 <!-- p↓ BEGIN -->
 <!-- p↓ length lines: 16 chars: 142 -->
 
@@ -70,7 +75,8 @@ Begin a [Sweater Vest](https://www.npmjs.com/package/sweater-vest) test by utili
 
 The `Sweater` component expects a `vest` snippet to be defined which takes a single argument (which is called `pocket` as a convention).
 
-[](src/routes/docs/anatomy/+page.svelte?region=extract(component)&apply=recipe(no-body,no-pocket-type,trim-pocket,no-markup))
+[](<src/routes/docs/anatomy/+page.svelte?region=extract(component)&apply=recipe(no-body,no-pocket-type,trim-pocket,no-markup)>)
+
 <!-- p↓ BEGIN -->
 <!-- p↓ length lines: 11 chars: 95 -->
 
@@ -90,7 +96,8 @@ The `Sweater` component expects a `vest` snippet to be defined which takes a sin
 
 Within the script tag of your test, you should define a [model class](https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller#Model), which will be passed to the [`vest` snippet](#vest-snippet) as it's only argument.
 
-[](src/routes/docs/anatomy/+page.svelte?region=extract(script,component),replace(container,...),remove(value)&apply=recipe(no-body,trim-pocket,no-markup,no-import))
+[](<src/routes/docs/anatomy/+page.svelte?region=extract(script,component),replace(container,...),remove(value)&apply=recipe(no-body,trim-pocket,no-markup,no-import)>)
+
 <!-- p↓ BEGIN -->
 <!-- p↓ length lines: 19 chars: 164 -->
 
@@ -124,7 +131,8 @@ If you expect the values of a field to change over the course of a test (includi
 
 - Any elements and/or componets within your markup that you want to `bind:this` to in order to interact with in your test's [body](#body-function-prop). For example:
 
-[](src/routes/docs/anatomy/+page.svelte?region=extract(script,component),replace(value,...),trim-start(bind)&apply=recipe(no-body,trim-pocket,no-template,no-import))
+[](<src/routes/docs/anatomy/+page.svelte?region=extract(script,component),replace(value,...),trim-start(bind)&apply=recipe(no-body,trim-pocket,no-template,no-import)>)
+
 <!-- p↓ BEGIN -->
 <!-- p↓ length lines: 22 chars: 258 -->
 
@@ -153,7 +161,8 @@ If you expect the values of a field to change over the course of a test (includi
 
 - Any data that will be utilized within your markup (which will be initilalized / manipulated by your test's [body](#body-function-prop)). For example:
 
-[](src/routes/docs/anatomy/+page.svelte?region=extract(script,component-no-markup-open,templated,component-no-markup-close),replace(container,...),splice-start(templated,-1,--...),splice-end(templated,-1,...),single-line(templated)&apply=recipe(no-body,trim-pocket,no-import))
+[](<src/routes/docs/anatomy/+page.svelte?region=extract(script,component-no-markup-open,templated,component-no-markup-close),replace(container,...),splice-start(templated,-1,--...),splice-end(templated,-1,...),single-line(templated)&apply=recipe(no-body,trim-pocket,no-import)>)
+
 <!-- p↓ BEGIN -->
 <!-- p↓ length lines: 20 chars: 207 -->
 
@@ -182,7 +191,8 @@ If you expect the values of a field to change over the course of a test (includi
 
 The `body` prop is an async function that contains your test logic. It receives a single argument called `harness` (as a convention), which provides utilities for interacting with your test.
 
-[](src/routes/docs/anatomy/+page.svelte?region=extract(component),replace(snippet,...),replace(implementation,...),splice-start(body,1))
+[](<src/routes/docs/anatomy/+page.svelte?region=extract(component),replace(snippet,...),replace(implementation,...),splice-start(body,1)>)
+
 <!-- p↓ BEGIN -->
 <!-- p↓ length lines: 11 chars: 85 -->
 
@@ -207,7 +217,8 @@ The `harness` argument provides several utilities that help you write your test:
 - **`expect`** - The assertion function from `@storybook/test` used to set up your test expectations.
 - Additional utilities like `delay`, `preventRender`, `capture`, and more are available on the harness.
 
-[](src/routes/docs/anatomy/+page.svelte?region=extract(script,component),replace(snippet,...),splice-start(body,1)&apply=recipe(no-import))
+[](<src/routes/docs/anatomy/+page.svelte?region=extract(script,component),replace(snippet,...),splice-start(body,1)&apply=recipe(no-import)>)
+
 <!-- p↓ BEGIN -->
 <!-- p↓ length lines: 24 chars: 438 -->
 
@@ -238,7 +249,8 @@ The `harness` argument provides several utilities that help you write your test:
 
 #### Complete
 
-[](src/routes/docs/anatomy/+page.svelte?apply=recipe(trim-pocket,path)&region=splice-start(body,1),single-line(pocket),splice-end(pocket,-1),splice-start(bind,1))
+[](<src/routes/docs/anatomy/+page.svelte?apply=recipe(trim-pocket,path)&region=splice-start(body,1),single-line(pocket),splice-end(pocket,-1),splice-start(bind,1)>)
+
 <!-- p↓ BEGIN -->
 <!-- p↓ length lines: 29 chars: 600 -->
 
