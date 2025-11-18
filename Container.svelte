@@ -4,6 +4,8 @@
     type ViewAPI,
     type Theme,
   } from "../dockview-svelte-suede";
+  import "../dockview-svelte-suede/styles/dockview.css";
+
   const orientations = {
     horizontal: "HORIZONTAL",
     vertical: "VERTICAL",
@@ -103,7 +105,8 @@
 <script lang="ts">
   import { GridView } from "../dockview-svelte-suede";
   import Runner, { type Props as RunnerProps, reset } from "./Runner.svelte";
-  import { deferred, onAbort } from "./utils.svelte.js";
+  import { defer } from "./utils";
+  import { onAbort } from "./utils/abort";
 
   let { orientation = "horizontal", theme = "dark", mode }: Props = $props();
 
@@ -111,7 +114,7 @@
 
   type API = ViewAPI<"grid", { child: typeof child }>;
 
-  const { promise, resolve } = deferred<API>();
+  const { promise, resolve } = defer<API>();
 
   const withDefaults = (props: RunnerProps) => ({
     ...props,

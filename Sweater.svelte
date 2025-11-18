@@ -3,7 +3,7 @@
   import type { Props as ContainerProps } from "./Container.svelte";
   import Container, { next, setTotal } from "./Container.svelte";
   import { onMount, tick, type Snippet } from "svelte";
-  import { createContainerMap } from "./utils.svelte.js";
+  import { createContainerMap } from "./utils/container-map";
 
   type ConfigProps = ContainerProps & {
     target?: HTMLElement;

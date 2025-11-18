@@ -1,54 +1,15 @@
 <script lang="ts" module>
   /* TODO: should retrieve dynamically in the case of playwright? */
   import * as test from "@storybook/test";
-  import {
-    PromiseQueue,
-    type Deferred,
-    retrieve,
-    createTestAbortMechanism,
-    createCapturer,
-    untilNextFrame,
-    TestAborted,
-    type ValueOrGetter,
-    untilMilliseconds,
-  } from "./utils.svelte.js";
-  import { type Snippet, flushSync } from "svelte";
+  import { defer, accumulate } from "./utils";
+  import { createCapturer } from "./utils/capture";
+  import { PromiseQueue } from "./utils/promise-queue";
+  import until from "./utils/until";
+  import { createTestAbortMechanism, TestAborted } from "./utils/abort";
+
+  import { type Snippet } from "svelte";
 
   export type PocketElements = Record<string, any>;
-
-  type Flush = (..._: any[]) => void;
-
-  interface Setter<T> {
-    /**
-     * Set the values of the test elements according to the items provided in the payload.
-     * @param payload - The values to set the test elements to.
-     */
-    (payload: Partial<T>): void;
-    /**
-     * **_NOTE:_** This overload is intended only for use with <ins>**svelte runes**</ins>.
-     *
-     * Both sets the values of the test elements according to the object returned by the getter,
-     * but also sets up a reactive dependency on `getter` such that when any of the reactive values it references change,
-     * the test elements will be updated to the new values.
-     * @example
-     * ```ts
-     * let value = $state(0);
-     * set(() => ({ value }));
-     * ```
-     * @example
-     * ```ts
-     * let value = $state(0);
-     * const flush = set(() => ({ value }));
-     * flush((value = 1));
-     * ```
-     * @param getter - A function that returns the values to set the test elements to.
-     * Any reactive values referenced in the function body will be tracked as dependencies.
-     * @returns A function that can be used to immediately flush reactive changes (e.g. internally calls `svelte.flushSync`).
-     * For syntatic sugar purposes, it takes any abritrary number of arguments,
-     * so you can update a rune and flush it's changes in a single line (see the second example above).
-     */
-    (getter: () => Partial<T>): Flush;
-  }
 
   type DelayKey = "seconds" | "milliseconds" | "minutes" | "frames";
   type Delay = {
@@ -56,15 +17,16 @@
   }[DelayKey];
 
   export type TestHarness<T extends PocketElements> = {
-    given: (...keys: (keyof T)[]) => Promise<Pick<T, (typeof keys)[number]>>;
-    set: Setter<T>;
+    set: <T>(payload: T) => T;
     container: HTMLElement;
     preventRender: () => () => void;
     signal: AbortSignal;
     onAbort: (fn: () => void) => void;
     capture: ReturnType<typeof createCapturer>;
-    untilNextFrame: typeof untilNextFrame;
     delay: (amount: Delay) => Promise<void>;
+    definition: <Keys extends keyof T>(
+      ...keys: Keys[]
+    ) => Promise<{ [K in Keys]: Exclude<T[K], undefined | null> }>;
     withUserFocus: (
       fn: (userEvent: typeof test.userEvent) => Promise<void>
     ) => Promise<void>;
@@ -93,13 +55,6 @@
 
   let queue: PromiseQueue;
 
-  const errorIfRendered = (rendered: boolean) => {
-    if (!rendered) return;
-    const msg = `Render has already happened, so it cannot be prevented. 
-Make sure to call \`harness.preventRender()\` at the top of your body function before anything is \`await\`ed.`;
-    throw new Error(msg);
-  };
-
   const userFocusQueue = new PromiseQueue().open();
   const withUserFocus = (
     fn: (userEvent: typeof test.userEvent) => Promise<void>
@@ -107,10 +62,11 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
 
   const delay = async (amount: Delay): Promise<void> => {
     if ("frames" in amount) {
-      while (amount.frames--) await untilNextFrame();
+      let { frames } = amount;
+      while (frames--) await until.nextFrame();
       return;
     }
-    return untilMilliseconds(
+    return until.milliseconds(
       "milliseconds" in amount
         ? amount.milliseconds
         : "seconds" in amount
@@ -120,11 +76,42 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
             : 0
     );
   };
+
+  const logError = (e: any) => {
+    console.group("❌ Test Failed");
+    console.error("Error:", e);
+    console.error("Message:", e?.message);
+    console.error("Name:", e?.name);
+    console.error("Stack:", e?.stack);
+    if (e?.matcherResult) console.error("Matcher Result:", e.matcherResult);
+    console.groupEnd();
+  };
+
+  const defined = <T,>(value: T | undefined | null): value is T =>
+    value !== undefined && value !== null;
+
+  const subscribeToDefinition = <T extends PocketElements, K extends keyof T>(
+    pocket: T,
+    key: K,
+    cleanup: Set<() => void>
+  ) => {
+    const deferred = defer<Required<T>[K]>();
+    const unsubscribe = $effect.root(() => {
+      $effect(() => {
+        const value = pocket[key];
+        if (!defined(value)) return;
+        unsubscribe();
+        cleanup.delete(unsubscribe);
+        deferred.resolve(value);
+      });
+    });
+    cleanup.add(unsubscribe);
+    return deferred.promise;
+  };
 </script>
 
 <script lang="ts" generics="T extends PocketElements">
   import { onMount } from "svelte";
-  import { createSubscriber } from "svelte/reactivity";
 
   let {
     body,
@@ -134,75 +121,53 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
     begin,
   }: Props<T> & { begin: Begin } = $props();
 
-  type MapKey = string | symbol;
-  type Subscriber = ReturnType<typeof createSubscriber>;
-  const subscriberMap = new Map<MapKey, Subscriber>();
-  const deferredMap = new Map<MapKey, Deferred<any>>();
-
   let container = $state.raw<HTMLDivElement>();
   let gate = $state.raw<Promise<any>>();
+  let pocket = $state({} as T);
   let prevented = $state(manual);
 
   /* svelte-ignore non_reactive_update */
   let rendered = false;
 
-  const pocket: T = new Proxy({} as T, {
-    set: (target, prop, value) => {
-      target[prop as keyof T] = value;
-      retrieve(deferredMap, prop).resolve(value);
-      return true;
-    },
-    get: (target, prop) => {
-      subscriberMap.get(prop)?.();
-      return target[prop as keyof T];
-    },
-  });
-
   type Harness = TestHarness<T>;
 
   const abort = createTestAbortMechanism();
 
-  const apply = (obj: Partial<T>) =>
-    Object.entries(obj).forEach(([key, value]) => {
-      pocket[key as keyof T] = value;
-    });
-
-  const reactiveSubscriber = (getter: () => Partial<T>) =>
-    createSubscriber((update) =>
-      $effect.root(() => {
-        $effect(() => (apply(getter()), update()));
-      })
-    );
-
-  const set: Harness["set"] = abort.wrap(
-    (payload: ValueOrGetter<Partial<T>>) => {
-      if (typeof payload !== "function") return apply(payload);
-      const states = payload();
-      for (const key of Object.keys(states))
-        subscriberMap.set(key, reactiveSubscriber(payload));
-      apply(states);
-      return () => flushSync();
-    }
+  const set = abort.wrap(
+    (payload) => (pocket = payload) satisfies Harness["set"]
   );
 
-  const given: Harness["given"] = async (...keys) => {
+  const definition = abort.wrap((async (...keys) => {
+    const cleanup = new Set<() => void>();
+
     const resolved = await Promise.race([
-      Promise.all(keys.map((k) => retrieve(deferredMap, k as string).promise)),
+      Promise.all(
+        keys.map((key) =>
+          defined(pocket[key])
+            ? Promise.resolve(pocket[key])
+            : subscribeToDefinition(pocket, key, cleanup)
+        )
+      ),
       abort.until,
     ]);
+
+    for (const unsubscribe of cleanup) unsubscribe();
+
     abort.tryError();
-    if (Array.isArray(resolved))
-      return resolved.reduce(
-        (acc, curr, index) => {
-          (acc as any)[keys[index]] = curr;
-          return acc;
-        },
-        {} as Pick<T, (typeof keys)[number]>
-      );
-  };
+
+    type Return = Required<Pick<T, (typeof keys)[number]>>;
+
+    if (Array.isArray(resolved)) return accumulate(keys, resolved);
+
+    return void 0 as unknown as Exclude<typeof resolved, void>; // unreachable
+  }) satisfies Harness["definition"]);
 
   const preventRender: Harness["preventRender"] = abort.wrap(() => {
-    errorIfRendered(rendered);
+    if (rendered) {
+      const msg = `Render has already happened, so it cannot be prevented. 
+Make sure to call \`harness.preventRender()\` at the top of your body function before anything is \`await\`ed.`;
+      throw new Error(msg);
+    }
     prevented = true;
     const render = abort.wrap(() => (prevented = false));
     return render;
@@ -218,11 +183,10 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
       container,
       signal,
       set,
-      given,
       preventRender,
       capture,
       onAbort,
-      untilNextFrame,
+      definition,
       withUserFocus,
       delay,
     });
@@ -230,16 +194,13 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
     gate = queue.add(mode, () => {
       const complete = begin(() => controller.abort("Test has been aborted"));
       const exit = () => {
-        deferredMap.clear();
-        subscriberMap.clear();
         complete();
       };
       return body(harness)
         .then(exit)
         .catch((e) => {
-          if (e instanceof TestAborted) return exit();
-          console.error(e); // do something with the error
-          throw e;
+          if (!(e instanceof TestAborted)) logError(e);
+          exit();
         });
     }).start;
 
@@ -247,7 +208,7 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
   });
 </script>
 
-<div bind:this={container}>
+<div bind:this={container} style="height: 100%;">
   {#if container && gate}
     {#await gate then}
       {#if !prevented}
