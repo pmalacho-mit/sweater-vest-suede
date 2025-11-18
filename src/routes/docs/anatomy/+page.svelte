@@ -16,9 +16,7 @@
   /* pd: model */
 </script>
 
-<!-- pd: script -->
-
-<!-- pd: component component-no-markup-open -->
+<!-- pd: script component component-no-markup-open -->
 <Sweater
   body={/* pd: body */ async (harness) => {
     /* pd: implementation */
