@@ -23,7 +23,7 @@
     const { set, definition, expect } = harness;
     const pocket = set(new Pocket());
     pocket.value = "Hello, world!";
-    // rendering happens here (effectively whenever you call your first `await`)
+    // NOTE: rendering happens here (effectively whenever you call your first `await`)
     const { container } = await definition("container");
     expect(container.textContent).toBe("Hello, world!");
     /* pd: implementation */

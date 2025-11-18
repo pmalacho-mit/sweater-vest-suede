@@ -190,8 +190,6 @@
 
     abort.tryError();
 
-    type Return = Required<Pick<T, (typeof keys)[number]>>;
-
     if (Array.isArray(resolved)) return accumulate(keys, resolved);
 
     return void 0 as unknown as Exclude<typeof resolved, void>; // unreachable

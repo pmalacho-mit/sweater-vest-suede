@@ -116,4 +116,9 @@
     width: 100vw;
     height: 100vh;
   }
+
+  :global(.dv-sash) {
+    background-color: black !important;
+    width: 1px !important;
+  }
 </style>

@@ -1,12 +1,37 @@
 <script lang="ts">
-  import { Sweater } from /** pkg */ "$lib/index.js" /** pkg */;
+  import { Sweater } from "$dist";
+
+  class Pocket {}
 </script>
 
-<Sweater config>
-  <Sweater name="Test 1" body={async (harness) => {}}>
-    {#snippet vest(pocket: {})}{/snippet}
+<Sweater config style="background-color: lightblue;">
+  <Sweater body={async (harness) => {}}>
+    {#snippet vest(pocket: Pocket)}
+      <div>Group 1, Test 1 (nested)</div>
+    {/snippet}
   </Sweater>
-  <Sweater name="Test 2" body={async (harness) => {}}>
-    {#snippet vest(pocket: {})}{/snippet}
+  <Sweater body={async (harness) => {}}>
+    {#snippet vest(pocket: Pocket)}
+      <div>Group 1, Test 2 (nested)</div>
+    {/snippet}
   </Sweater>
 </Sweater>
+
+<Sweater config class="custom-config-class">
+  <Sweater body={async (harness) => {}}>
+    {#snippet vest(pocket: Pocket)}
+      <div>Group 2, Test 1 (nested)</div>
+    {/snippet}
+  </Sweater>
+  <Sweater body={async (harness) => {}}>
+    {#snippet vest(pocket: Pocket)}
+      <div>Group 2, Test 2 (nested)</div>
+    {/snippet}
+  </Sweater>
+</Sweater>
+
+<style>
+  :global(.custom-config-class) {
+    background-color: greenyellow;
+  }
+</style>

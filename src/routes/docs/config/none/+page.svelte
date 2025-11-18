@@ -1,11 +1,17 @@
 <script lang="ts">
-  import { Sweater } from /** pkg */ "$lib/index.js" /** pkg */;
+  import { Sweater } from "$dist";
+
+  class Pocket {}
 </script>
 
-<Sweater name="Test 1" body={async (harness) => {}}>
-  {#snippet vest(pocket: {})}{/snippet}
+<Sweater body={async (harness) => {}}>
+  {#snippet vest(pocket: Pocket)}
+    <div>Test 1 (Default Group)</div>
+  {/snippet}
 </Sweater>
 
-<Sweater name="Test 2" body={async (harness) => {}}>
-  {#snippet vest(pocket: {})}{/snippet}
+<Sweater body={async (harness) => {}}>
+  {#snippet vest(pocket: Pocket)}
+    <div>Test 2 (Default Group)</div>
+  {/snippet}
 </Sweater>

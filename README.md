@@ -1,6 +1,6 @@
 # Sweater-vest-suede
 
-Sweater vest (<span style="color:#aa1e1e"><span>**S**</span><sup style="color:grey">weater</sup> <span style="color:#aa1e1e">**v**</span><sub style="color:#aa1e1e">_elte_</sub></span> <sub style="">_t_</sub><span style="text-">est</span>) is a [svelte](https://svelte.dev/) utility that simplifies testing svelte components in browser environments, specifically when you're testing multiple components together and/or within complex markup.
+Sweater vest (<ins style="color:white"><span style="color:#aa1e1e"><span>**S**</span><sup style="color:grey">weater</sup> <span style="color:#aa1e1e">**v**</span><sub style="color:#aa1e1e">_elte_</sub></span> <sub style="">_t_</sub><span style="text-">est</span></ins>) is a [svelte](https://svelte.dev/) utility that simplifies testing svelte components in browser environments, specifically when you're testing multiple components together and/or within complex markup.
 
 This repo is a [suede dependency](https://github.com/pmalacho-mit/suede).
 
@@ -20,7 +20,7 @@ git subrepo clone --branch dist https://github.com/pmalacho-mit/sweater-vest-sue
 
 [](./src/routes/docs/anatomy/README.md)
 <!-- p↓ BEGIN -->
-<!-- p↓ length lines: 317 chars: 9520 -->
+<!-- p↓ length lines: 317 chars: 9532 -->
 [](?register=recipe(path)&region=remap(,$dist,_angle_path_unangle__slash_sweater-vest-suede,_))
 
 [](?register=recipe(no-body)&region=splice-end(body,5),splice-start(body,-6),replace(body,'...'))
@@ -274,7 +274,7 @@ export type TestHarness<Pocket extends Record<string, any>> = {
 
 [](src/routes/docs/anatomy/+page.svelte?region=extract(script,component),replace(snippet,...),splice-start(body,1)&apply=recipe(no-import))
 <!-- p↓ BEGIN -->
-<!-- p↓ length lines: 25 chars: 519 -->
+<!-- p↓ length lines: 25 chars: 525 -->
 
 ```svelte
 <script lang="ts">
@@ -291,7 +291,7 @@ export type TestHarness<Pocket extends Record<string, any>> = {
     const { set, definition, expect } = harness;
     const pocket = set(new Pocket());
     pocket.value = "Hello, world!";
-    // rendering happens here (effectively whenever you call your first `await`)
+    // NOTE: rendering happens here (effectively whenever you call your first `await`)
     const { container } = await definition("container");
     expect(container.textContent).toBe("Hello, world!");
   }}
@@ -306,7 +306,7 @@ export type TestHarness<Pocket extends Record<string, any>> = {
 
 [](src/routes/docs/anatomy/+page.svelte?apply=recipe(trim-pocket,path)&region=splice-start(body,1),single-line(pocket),splice-end(pocket,-1),splice-start(bind,1))
 <!-- p↓ BEGIN -->
-<!-- p↓ length lines: 29 chars: 680 -->
+<!-- p↓ length lines: 29 chars: 686 -->
 
 ```svelte
 <script lang="ts">
@@ -323,7 +323,7 @@ export type TestHarness<Pocket extends Record<string, any>> = {
     const { set, definition, expect } = harness;
     const pocket = set(new Pocket());
     pocket.value = "Hello, world!";
-    // rendering happens here (effectively whenever you call your first `await`)
+    // NOTE: rendering happens here (effectively whenever you call your first `await`)
     const { container } = await definition("container");
     expect(container.textContent).toBe("Hello, world!");
   }}
@@ -332,6 +332,246 @@ export type TestHarness<Pocket extends Record<string, any>> = {
     <div bind:this={pocket.container}>
       {pocket.value}
     </div>
+  {/snippet}
+</Sweater>
+```
+
+<!-- p↓ END -->
+
+<!-- p↓ END -->
+
+[](./src/routes/docs/config/README.md)
+<!-- p↓ BEGIN -->
+<!-- p↓ length lines: 235 chars: 5901 -->
+[](?register=recipe(path)&region=remap(,$dist,_angle_path_unangle__slash_sweater-vest-suede,_))
+
+### Configuration
+
+Sweater vests test all run in the same "group" by default.
+
+[](src/routes/docs/config/none/+page.svelte?apply=recipe(path))
+<!-- p↓ BEGIN -->
+<!-- p↓ length lines: 21 chars: 390 -->
+
+```svelte
+<script lang="ts">
+  import { Sweater } from "<path>/sweater-vest-suede";
+
+  class Pocket {}
+</script>
+
+<Sweater body={async (harness) => {}}>
+  {#snippet vest(pocket: Pocket)}
+    <div>Test 1 (Default Group)</div>
+  {/snippet}
+</Sweater>
+
+<Sweater body={async (harness) => {}}>
+  {#snippet vest(pocket: Pocket)}
+    <div>Test 2 (Default Group)</div>
+  {/snippet}
+</Sweater>
+```
+
+<!-- p↓ END -->
+
+Tests in the "same" group will be rendered within the same [grid-view](https://dockview.dev/docs/other/gridview/overview) and all run in parallel.
+
+However, the `<Sweater>` component can also be used to configure and group similar tests.
+
+#### With Nesting
+
+The most intuitive way to group and configure tests is to _nest_ them under a `<Sweater>` component with the `config` attribute.
+
+[](src/routes/docs/config/nested/+page.svelte?apply=recipe(path))
+<!-- p↓ BEGIN -->
+<!-- p↓ length lines: 41 chars: 920 -->
+
+```svelte
+<script lang="ts">
+  import { Sweater } from "<path>/sweater-vest-suede";
+
+  class Pocket {}
+</script>
+
+<Sweater config style="background-color: lightblue;">
+  <Sweater body={async (harness) => {}}>
+    {#snippet vest(pocket: Pocket)}
+      <div>Group 1, Test 1 (nested)</div>
+    {/snippet}
+  </Sweater>
+  <Sweater body={async (harness) => {}}>
+    {#snippet vest(pocket: Pocket)}
+      <div>Group 1, Test 2 (nested)</div>
+    {/snippet}
+  </Sweater>
+</Sweater>
+
+<Sweater config class="custom-config-class">
+  <Sweater body={async (harness) => {}}>
+    {#snippet vest(pocket: Pocket)}
+      <div>Group 2, Test 1 (nested)</div>
+    {/snippet}
+  </Sweater>
+  <Sweater body={async (harness) => {}}>
+    {#snippet vest(pocket: Pocket)}
+      <div>Group 2, Test 2 (nested)</div>
+    {/snippet}
+  </Sweater>
+</Sweater>
+
+<style>
+  :global(.custom-config-class) {
+    background-color: greenyellow;
+  }
+</style>
+```
+
+<!-- p↓ END -->
+
+As you can see above, the parent `<Sweater>` can also be used to style the container of the group's [grid-view](https://dockview.dev/docs/other/gridview/overview) with both `class` and `style` props.
+
+This is useful, as <ins>**only `<Sweater>` components should be childed under other `<Sweater>` components**</ins> (it likely won't cause errors, but won't behave as expected).
+
+#### Sequentially
+
+You can also sequentially group tests, which is offered simply to reduce nesting and make the code more readable.
+
+To do so, simply breakup tests with a leading `<Sweater>` component that has the `config` attribute.
+
+[](src/routes/docs/config/sequential/+page.svelte?apply=recipe(path))
+<!-- p↓ BEGIN -->
+<!-- p↓ length lines: 29 chars: 630 -->
+
+```svelte
+<script lang="ts">
+  import { Sweater } from "<path>/sweater-vest-suede";
+
+  class Pocket {}
+</script>
+
+<Sweater config />
+
+<Sweater name="Group 1, Test 1" body={async (harness) => {}}>
+  {#snippet vest(pocket: Pocket)}{/snippet}
+</Sweater>
+
+<Sweater name="Group 1, Test 2" body={async (harness) => {}}>
+  {#snippet vest(pocket: Pocket)}{/snippet}
+</Sweater>
+
+<Sweater config />
+
+<Sweater name="Group 2, Test 1" body={async (harness) => {}}>
+  {#snippet vest(pocket: Pocket)}{/snippet}
+</Sweater>
+
+<Sweater name="Group 2, Test 2" body={async (harness) => {}}>
+  {#snippet vest(pocket: Pocket)}{/snippet}
+</Sweater>
+```
+
+<!-- p↓ END -->
+
+#### Mixed
+
+You can also mix configuration strategies. Any tests appearing before a `<Sweater>` component with the `config` attribute will be placed into the "default" group.
+
+[](src/routes/docs/config/mixed/+page.svelte?apply=recipe(path))
+<!-- p↓ BEGIN -->
+<!-- p↓ length lines: 48 chars: 997 -->
+
+```svelte
+<script lang="ts">
+  import { Sweater } from "<path>/sweater-vest-suede";
+
+  class Pocket {}
+</script>
+
+<Sweater body={async (harness) => {}}>
+  {#snippet vest(pocket: Pocket)}
+    <div>Defaul Group, Test 1</div>
+  {/snippet}
+</Sweater>
+
+<Sweater body={async (harness) => {}}>
+  {#snippet vest(pocket: Pocket)}
+    <div>Defaul Group, Test 2</div>
+  {/snippet}
+</Sweater>
+
+<Sweater config>
+  <Sweater body={async (harness) => {}}>
+    {#snippet vest(pocket: Pocket)}
+      <div>Nested Group, Test 1</div>
+    {/snippet}
+  </Sweater>
+  <Sweater body={async (harness) => {}}>
+    {#snippet vest(pocket: Pocket)}
+      <div>Nested Group, Test 2</div>
+    {/snippet}
+  </Sweater>
+</Sweater>
+
+<Sweater config />
+
+<Sweater body={async (harness) => {}}>
+  {#snippet vest(pocket: Pocket)}
+    <div>Sequential Group, Test 1</div>
+  {/snippet}
+</Sweater>
+
+<Sweater body={async (harness) => {}}>
+  {#snippet vest(pocket: Pocket)}
+    <div>Sequential Group, Test 2</div>
+  {/snippet}
+</Sweater>
+```
+
+<!-- p↓ END -->
+
+##### **Warning:** Avoid Dangling Tests
+
+> [!CAUTION]
+> Avoid Dangling Tests
+
+You cannot have tests that are not directly associated with a specific group.
+
+[](src/routes/docs/config/mixed-wrong/+page.svelte?apply=recipe(path))
+<!-- p↓ BEGIN -->
+<!-- p↓ length lines: 36 chars: 737 -->
+
+```svelte
+<script lang="ts">
+  import { Sweater } from "<path>/sweater-vest-suede";
+
+  class Pocket {}
+</script>
+
+<Sweater body={async (harness) => {}}>
+  {#snippet vest(pocket: Pocket)}
+    <div>Group 1, Test 1</div>
+  {/snippet}
+</Sweater>
+
+<Sweater config>
+  <Sweater body={async (harness) => {}}>
+    {#snippet vest(pocket: Pocket)}
+      <div>Group 2, Test 1</div>
+    {/snippet}
+  </Sweater>
+
+  <Sweater body={async (harness) => {}}>
+    {#snippet vest(pocket: Pocket)}
+      <div>Group 2, Test 2</div>
+    {/snippet}
+  </Sweater>
+</Sweater>
+
+<!-- This test is "dangling" and will cause issues -->
+<Sweater body={async (harness) => {}}>
+  {#snippet vest(pocket: Pocket)}
+    <div>Group 3, Test 1</div>
   {/snippet}
 </Sweater>
 ```
