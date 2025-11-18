@@ -17,11 +17,7 @@
   </Sweater>
 </Sweater>
 
-<Sweater
-  config
-  class="custom-config-class"
-  style="background-color: lightblue;"
->
+<Sweater config class="custom-config-class" style="color: blue;">
   <Sweater body={async (harness) => {}}>
     {#snippet vest(pocket: Pocket)}
       ...Group 2, Test 1 (nested)...
