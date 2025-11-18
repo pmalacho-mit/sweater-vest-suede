@@ -239,10 +239,12 @@ The `harness` argument provides several utilities that help you write your test:
     pocket.value = "Hello, world!";
     const { container } = await definition("container");
     expect(container.textContent).toBe("Hello, world!");
+    // https://svelte.dev/docs/svelte/snippet
   }}
 >
   ...
 </Sweater>
+
 ```
 
 <!-- p↓ END -->
