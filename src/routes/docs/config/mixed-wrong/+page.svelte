@@ -18,7 +18,10 @@
   </Sweater>
 </Sweater>
 
-<!-- This test is "dangling" and will cause issues -->
+<!-- 
+This test can't be associated with a config and is therefore "danling".
+This will cause your test to error out or not load at all.
+-->
 <Sweater body={async (harness) => {}}>
   {#snippet vest(pocket: Pocket)}
     !!!DANGLING TEST!!!

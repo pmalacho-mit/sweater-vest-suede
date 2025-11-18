@@ -342,7 +342,7 @@ export type TestHarness<Pocket extends Record<string, any>> = {
 
 [](./src/routes/docs/config/README.md)
 <!-- p↓ BEGIN -->
-<!-- p↓ length lines: 239 chars: 5725 -->
+<!-- p↓ length lines: 242 chars: 5870 -->
 [](?register=recipe(path)&region=remap(,$dist,_angle_path_unangle__slash_sweater-vest-suede,_))
 
 ### Configuration
@@ -485,7 +485,7 @@ To do so, simply breakup tests with a leading `<Sweater>` component with the `co
 
 #### Mixed
 
-You can also mix configuration strategies. Any tests appearing before a `<Sweater>` component with the `config` attribute will be placed into the "default" group.
+You can also mix configuration strategies. Any tests appearing before a `<Sweater>` component with the `config` attribute will be placed into the _default_ group.
 
 [](src/routes/docs/config/mixed/+page.svelte?apply=recipe(path))
 <!-- p↓ BEGIN -->
@@ -545,11 +545,11 @@ You can also mix configuration strategies. Any tests appearing before a `<Sweate
 
 #### Dangling Tests
 
-You cannot have tests that are not directly associated with a specific group.
+You cannot have tests that are not directly associated with a specific group (outside of the _default_ group at the top of your markup).
 
 [](src/routes/docs/config/mixed-wrong/+page.svelte?apply=recipe(path))
 <!-- p↓ BEGIN -->
-<!-- p↓ length lines: 30 chars: 586 -->
+<!-- p↓ length lines: 33 chars: 672 -->
 
 ```svelte
 <script lang="ts">
@@ -572,7 +572,10 @@ You cannot have tests that are not directly associated with a specific group.
   </Sweater>
 </Sweater>
 
-<!-- This test is "dangling" and will cause issues -->
+<!-- 
+This test can't be associated with a config and is therefore "danling".
+This will cause your test to error out or not load at all.
+-->
 <Sweater body={async (harness) => {}}>
   {#snippet vest(pocket: Pocket)}
     !!!DANGLING TEST!!!

@@ -32,7 +32,7 @@ To do so, simply breakup tests with a leading `<Sweater>` component with the `co
 
 ## Mixed
 
-You can also mix configuration strategies. Any tests appearing before a `<Sweater>` component with the `config` attribute will be placed into the "default" group.
+You can also mix configuration strategies. Any tests appearing before a `<Sweater>` component with the `config` attribute will be placed into the _default_ group.
 
 [](<./mixed/+page.svelte?apply=recipe(path)>)
 
@@ -41,6 +41,6 @@ You can also mix configuration strategies. Any tests appearing before a `<Sweate
 
 ## Dangling Tests
 
-You cannot have tests that are not directly associated with a specific group.
+You cannot have tests that are not directly associated with a specific group (outside of the _default_ group at the top of your markup).
 
 [](<./mixed-wrong/+page.svelte?apply=recipe(path)>)
