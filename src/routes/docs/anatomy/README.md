@@ -14,7 +14,7 @@
 
 [](<?register=recipe(no-template)&region=replace(templated,...)>)
 
-[](<?register=recipe(no-import)&region=replace(import,...-line-)>)
+[](<?register=recipe(no-import)&region=replace(import,...)>)
 
 # Anatomy of a Sweater Vest Test
 

@@ -18,7 +18,7 @@ git subrepo clone --branch dist https://github.com/pmalacho-mit/sweater-vest-sue
 
 [](./src/routes/docs/anatomy/README.md)
 <!-- p↓ BEGIN -->
-<!-- p↓ length lines: 251 chars: 7281 -->
+<!-- p↓ length lines: 253 chars: 7277 -->
 [](?register=recipe(path)&region=remap(,$dist,_angle_path_unangle__slash_sweater-vest-suede,_))
 
 [](?register=recipe(no-body)&region=splice-end(body,5),splice-start(body,-6),replace(body,'...'))
@@ -35,7 +35,7 @@ git subrepo clone --branch dist https://github.com/pmalacho-mit/sweater-vest-sue
 
 [](?register=recipe(no-template)&region=replace(templated,...))
 
-[](?register=recipe(no-import)&region=replace(import,...-line-))
+[](?register=recipe(no-import)&region=replace(import,...))
 
 ### Anatomy of a Sweater Vest Test
 
@@ -47,11 +47,12 @@ Begin a [Sweater Vest](https://www.npmjs.com/package/sweater-vest) test by utili
 
 [](src/routes/docs/anatomy/+page.svelte?apply=recipe(path,no-body,no-snippet,no-model))
 <!-- p↓ BEGIN -->
-<!-- p↓ length lines: 15 chars: 141 -->
+<!-- p↓ length lines: 16 chars: 142 -->
 
 ```svelte
 <script lang="ts">
   import { Sweater } from "<path>/sweater-vest-suede";
+
   ...
 </script>
 
@@ -239,11 +240,12 @@ The `harness` argument provides several utilities that help you write your test:
 
 [](src/routes/docs/anatomy/+page.svelte?apply=recipe(trim-pocket,path)&region=splice-start(body,1),single-line(pocket),splice-end(pocket,-1),splice-start(bind,1))
 <!-- p↓ BEGIN -->
-<!-- p↓ length lines: 28 chars: 599 -->
+<!-- p↓ length lines: 29 chars: 600 -->
 
 ```svelte
 <script lang="ts">
   import { Sweater } from "<path>/sweater-vest-suede";
+
   class Pocket {
     container = $state<HTMLDivElement>();
     value = $state("");
