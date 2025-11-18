@@ -342,7 +342,7 @@ export type TestHarness<Pocket extends Record<string, any>> = {
 
 [](./src/routes/docs/config/README.md)
 <!-- p↓ BEGIN -->
-<!-- p↓ length lines: 243 chars: 5723 -->
+<!-- p↓ length lines: 239 chars: 5725 -->
 [](?register=recipe(path)&region=remap(,$dist,_angle_path_unangle__slash_sweater-vest-suede,_))
 
 ### Configuration
@@ -433,7 +433,7 @@ The most intuitive way to group and configure tests is to _nest_ them under a `<
 > As you can see above, the parent `<Sweater>` can also be used to style the container of the group's [grid-view](https://dockview.dev/docs/other/gridview/overview) with both `class` and `style` props.
 
 > [!IMPORTANT]  
-> Only `<Sweater>` components should be childed under other `<Sweater>` components (it likely won't cause errors, but won't behave as expected).
+> Only `<Sweater>` components should be childed under other `<Sweater>` components\*\*</ins> (it likely won't cause errors, but won't behave as expected).
 
 #### Sequentially
 
@@ -541,16 +541,15 @@ You can also mix configuration strategies. Any tests appearing before a `<Sweate
 <!-- p↓ END -->
 
 > [!CAUTION]
-> Avoid Dangling Tests
->
-> You cannot have tests that are not directly associated with a specific group.
->
-> [](src/routes/docs/config/mixed-wrong/+page.svelte?apply=recipe(path)&wrap=quote)
+> Avoid [Dangling Tests](#dangling-tests)
+
+#### Dangling Tests
+
+You cannot have tests that are not directly associated with a specific group.
+
+[](src/routes/docs/config/mixed-wrong/+page.svelte?apply=recipe(path))
 <!-- p↓ BEGIN -->
-<!-- p↓ length lines: 36 chars: 617 -->
-
-<blockquote>
-
+<!-- p↓ length lines: 30 chars: 586 -->
 
 ```svelte
 <script lang="ts">
@@ -580,9 +579,6 @@ You can also mix configuration strategies. Any tests appearing before a `<Sweate
   {/snippet}
 </Sweater>
 ```
-
-
-</blockquote>
 
 <!-- p↓ END -->
 

@@ -20,7 +20,7 @@ The most intuitive way to group and configure tests is to _nest_ them under a `<
 > As you can see above, the parent `<Sweater>` can also be used to style the container of the group's [grid-view](https://dockview.dev/docs/other/gridview/overview) with both `class` and `style` props.
 
 > [!IMPORTANT]  
-> Only `<Sweater>` components should be childed under other `<Sweater>` components (it likely won't cause errors, but won't behave as expected).
+> Only `<Sweater>` components should be childed under other `<Sweater>` components\*\*</ins> (it likely won't cause errors, but won't behave as expected).
 
 ## Sequentially
 
@@ -37,8 +37,10 @@ You can also mix configuration strategies. Any tests appearing before a `<Sweate
 [](<./mixed/+page.svelte?apply=recipe(path)>)
 
 > [!CAUTION]
-> Avoid Dangling Tests
->
-> You cannot have tests that are not directly associated with a specific group.
->
-> [](<./mixed-wrong/+page.svelte?apply=recipe(path)&wrap=quote>)
+> Avoid [Dangling Tests](#dangling-tests)
+
+## Dangling Tests
+
+You cannot have tests that are not directly associated with a specific group.
+
+[](<./mixed-wrong/+page.svelte?apply=recipe(path)>)
