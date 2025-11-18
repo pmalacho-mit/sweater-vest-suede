@@ -342,16 +342,16 @@ export type TestHarness<Pocket extends Record<string, any>> = {
 
 [](./src/routes/docs/config/README.md)
 <!-- p↓ BEGIN -->
-<!-- p↓ length lines: 235 chars: 5901 -->
+<!-- p↓ length lines: 239 chars: 5702 -->
 [](?register=recipe(path)&region=remap(,$dist,_angle_path_unangle__slash_sweater-vest-suede,_))
 
 ### Configuration
 
-Sweater vests test all run in the same "group" by default.
+Sweater vests test all run in the same _group_ by default.
 
 [](src/routes/docs/config/none/+page.svelte?apply=recipe(path))
 <!-- p↓ BEGIN -->
-<!-- p↓ length lines: 21 chars: 390 -->
+<!-- p↓ length lines: 21 chars: 380 -->
 
 ```svelte
 <script lang="ts">
@@ -362,20 +362,20 @@ Sweater vests test all run in the same "group" by default.
 
 <Sweater body={async (harness) => {}}>
   {#snippet vest(pocket: Pocket)}
-    <div>Test 1 (Default Group)</div>
+    ...Test 1 (Default Group)...
   {/snippet}
 </Sweater>
 
 <Sweater body={async (harness) => {}}>
   {#snippet vest(pocket: Pocket)}
-    <div>Test 2 (Default Group)</div>
+    ...Test 2 (Default Group)...
   {/snippet}
 </Sweater>
 ```
 
 <!-- p↓ END -->
 
-Tests in the "same" group will be rendered within the same [grid-view](https://dockview.dev/docs/other/gridview/overview) and all run in parallel.
+Tests in the same group will be rendered within the same [grid-view](https://dockview.dev/docs/other/gridview/overview) and run in parallel.
 
 However, the `<Sweater>` component can also be used to configure and group similar tests.
 
@@ -385,7 +385,7 @@ The most intuitive way to group and configure tests is to _nest_ them under a `<
 
 [](src/routes/docs/config/nested/+page.svelte?apply=recipe(path))
 <!-- p↓ BEGIN -->
-<!-- p↓ length lines: 41 chars: 920 -->
+<!-- p↓ length lines: 45 chars: 907 -->
 
 ```svelte
 <script lang="ts">
@@ -394,28 +394,32 @@ The most intuitive way to group and configure tests is to _nest_ them under a `<
   class Pocket {}
 </script>
 
-<Sweater config style="background-color: lightblue;">
+<Sweater config>
   <Sweater body={async (harness) => {}}>
     {#snippet vest(pocket: Pocket)}
-      <div>Group 1, Test 1 (nested)</div>
+      ...Group 1, Test 1 (nested)...
     {/snippet}
   </Sweater>
   <Sweater body={async (harness) => {}}>
     {#snippet vest(pocket: Pocket)}
-      <div>Group 1, Test 2 (nested)</div>
+      ...Group 1, Test 2 (nested)...
     {/snippet}
   </Sweater>
 </Sweater>
 
-<Sweater config class="custom-config-class">
+<Sweater
+  config
+  class="custom-config-class"
+  style="background-color: lightblue;"
+>
   <Sweater body={async (harness) => {}}>
     {#snippet vest(pocket: Pocket)}
-      <div>Group 2, Test 1 (nested)</div>
+      ...Group 2, Test 1 (nested)...
     {/snippet}
   </Sweater>
   <Sweater body={async (harness) => {}}>
     {#snippet vest(pocket: Pocket)}
-      <div>Group 2, Test 2 (nested)</div>
+      ...Group 2, Test 2 (nested)...
     {/snippet}
   </Sweater>
 </Sweater>
@@ -435,13 +439,13 @@ This is useful, as <ins>**only `<Sweater>` components should be childed under ot
 
 #### Sequentially
 
-You can also sequentially group tests, which is offered simply to reduce nesting and make the code more readable.
+You can also sequentially group tests, which reduces nesting and can make code more readable (but perhaps slightly more complex to reason about).
 
-To do so, simply breakup tests with a leading `<Sweater>` component that has the `config` attribute.
+To do so, simply breakup tests with a leading `<Sweater>` component with the `config` attribute.
 
 [](src/routes/docs/config/sequential/+page.svelte?apply=recipe(path))
 <!-- p↓ BEGIN -->
-<!-- p↓ length lines: 29 chars: 630 -->
+<!-- p↓ length lines: 37 chars: 654 -->
 
 ```svelte
 <script lang="ts">
@@ -452,22 +456,30 @@ To do so, simply breakup tests with a leading `<Sweater>` component that has the
 
 <Sweater config />
 
-<Sweater name="Group 1, Test 1" body={async (harness) => {}}>
-  {#snippet vest(pocket: Pocket)}{/snippet}
+<Sweater body={async (harness) => {}}>
+  {#snippet vest(pocket: Pocket)}
+    ...Group 1, Test 1...
+  {/snippet}
 </Sweater>
 
-<Sweater name="Group 1, Test 2" body={async (harness) => {}}>
-  {#snippet vest(pocket: Pocket)}{/snippet}
+<Sweater body={async (harness) => {}}>
+  {#snippet vest(pocket: Pocket)}
+    ...Group 1, Test 2...
+  {/snippet}
 </Sweater>
 
 <Sweater config />
 
-<Sweater name="Group 2, Test 1" body={async (harness) => {}}>
-  {#snippet vest(pocket: Pocket)}{/snippet}
+<Sweater body={async (harness) => {}}>
+  {#snippet vest(pocket: Pocket)}
+    ...Group 2, Test 1...
+  {/snippet}
 </Sweater>
 
-<Sweater name="Group 2, Test 2" body={async (harness) => {}}>
-  {#snippet vest(pocket: Pocket)}{/snippet}
+<Sweater body={async (harness) => {}}>
+  {#snippet vest(pocket: Pocket)}
+    ...Group 2, Test 2...
+  {/snippet}
 </Sweater>
 ```
 
@@ -479,7 +491,7 @@ You can also mix configuration strategies. Any tests appearing before a `<Sweate
 
 [](src/routes/docs/config/mixed/+page.svelte?apply=recipe(path))
 <!-- p↓ BEGIN -->
-<!-- p↓ length lines: 48 chars: 997 -->
+<!-- p↓ length lines: 48 chars: 967 -->
 
 ```svelte
 <script lang="ts">
@@ -490,25 +502,25 @@ You can also mix configuration strategies. Any tests appearing before a `<Sweate
 
 <Sweater body={async (harness) => {}}>
   {#snippet vest(pocket: Pocket)}
-    <div>Defaul Group, Test 1</div>
+    ...Defaul Group, Test 1...
   {/snippet}
 </Sweater>
 
 <Sweater body={async (harness) => {}}>
   {#snippet vest(pocket: Pocket)}
-    <div>Defaul Group, Test 2</div>
+    ...Defaul Group, Test 2...
   {/snippet}
 </Sweater>
 
 <Sweater config>
   <Sweater body={async (harness) => {}}>
     {#snippet vest(pocket: Pocket)}
-      <div>Nested Group, Test 1</div>
+      ...Nested Group, Test 1...
     {/snippet}
   </Sweater>
   <Sweater body={async (harness) => {}}>
     {#snippet vest(pocket: Pocket)}
-      <div>Nested Group, Test 2</div>
+      ...Nested Group, Test 2...
     {/snippet}
   </Sweater>
 </Sweater>
@@ -517,20 +529,18 @@ You can also mix configuration strategies. Any tests appearing before a `<Sweate
 
 <Sweater body={async (harness) => {}}>
   {#snippet vest(pocket: Pocket)}
-    <div>Sequential Group, Test 1</div>
+    ...Sequential Group, Test 1...
   {/snippet}
 </Sweater>
 
 <Sweater body={async (harness) => {}}>
   {#snippet vest(pocket: Pocket)}
-    <div>Sequential Group, Test 2</div>
+    ...Sequential Group, Test 2...
   {/snippet}
 </Sweater>
 ```
 
 <!-- p↓ END -->
-
-##### **Warning:** Avoid Dangling Tests
 
 > [!CAUTION]
 > Avoid Dangling Tests
@@ -539,7 +549,7 @@ You cannot have tests that are not directly associated with a specific group.
 
 [](src/routes/docs/config/mixed-wrong/+page.svelte?apply=recipe(path))
 <!-- p↓ BEGIN -->
-<!-- p↓ length lines: 36 chars: 737 -->
+<!-- p↓ length lines: 30 chars: 586 -->
 
 ```svelte
 <script lang="ts">
@@ -550,20 +560,14 @@ You cannot have tests that are not directly associated with a specific group.
 
 <Sweater body={async (harness) => {}}>
   {#snippet vest(pocket: Pocket)}
-    <div>Group 1, Test 1</div>
+    ...Default Group Test...
   {/snippet}
 </Sweater>
 
 <Sweater config>
   <Sweater body={async (harness) => {}}>
     {#snippet vest(pocket: Pocket)}
-      <div>Group 2, Test 1</div>
-    {/snippet}
-  </Sweater>
-
-  <Sweater body={async (harness) => {}}>
-    {#snippet vest(pocket: Pocket)}
-      <div>Group 2, Test 2</div>
+      ...Nested Group Test...
     {/snippet}
   </Sweater>
 </Sweater>
@@ -571,7 +575,7 @@ You cannot have tests that are not directly associated with a specific group.
 <!-- This test is "dangling" and will cause issues -->
 <Sweater body={async (harness) => {}}>
   {#snippet vest(pocket: Pocket)}
-    <div>Group 3, Test 1</div>
+    !!!DANGLING TEST!!!
   {/snippet}
 </Sweater>
 ```

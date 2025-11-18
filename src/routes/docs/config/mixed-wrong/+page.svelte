@@ -6,20 +6,14 @@
 
 <Sweater body={async (harness) => {}}>
   {#snippet vest(pocket: Pocket)}
-    <div>Group 1, Test 1</div>
+    ...Default Group Test...
   {/snippet}
 </Sweater>
 
 <Sweater config>
   <Sweater body={async (harness) => {}}>
     {#snippet vest(pocket: Pocket)}
-      <div>Group 2, Test 1</div>
-    {/snippet}
-  </Sweater>
-
-  <Sweater body={async (harness) => {}}>
-    {#snippet vest(pocket: Pocket)}
-      <div>Group 2, Test 2</div>
+      ...Nested Group Test...
     {/snippet}
   </Sweater>
 </Sweater>
@@ -27,6 +21,6 @@
 <!-- This test is "dangling" and will cause issues -->
 <Sweater body={async (harness) => {}}>
   {#snippet vest(pocket: Pocket)}
-    <div>Group 3, Test 1</div>
+    !!!DANGLING TEST!!!
   {/snippet}
 </Sweater>

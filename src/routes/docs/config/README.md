@@ -2,11 +2,11 @@
 
 # Configuration
 
-Sweater vests test all run in the same "group" by default.
+Sweater vests test all run in the same _group_ by default.
 
 [](<./none/+page.svelte?apply=recipe(path)>)
 
-Tests in the "same" group will be rendered within the same [grid-view](https://dockview.dev/docs/other/gridview/overview) and all run in parallel.
+Tests in the same group will be rendered within the same [grid-view](https://dockview.dev/docs/other/gridview/overview) and run in parallel.
 
 However, the `<Sweater>` component can also be used to configure and group similar tests.
 
@@ -22,9 +22,9 @@ This is useful, as <ins>**only `<Sweater>` components should be childed under ot
 
 ## Sequentially
 
-You can also sequentially group tests, which is offered simply to reduce nesting and make the code more readable.
+You can also sequentially group tests, which reduces nesting and can make code more readable (but perhaps slightly more complex to reason about).
 
-To do so, simply breakup tests with a leading `<Sweater>` component that has the `config` attribute.
+To do so, simply breakup tests with a leading `<Sweater>` component with the `config` attribute.
 
 [](<./sequential/+page.svelte?apply=recipe(path)>)
 
@@ -33,8 +33,6 @@ To do so, simply breakup tests with a leading `<Sweater>` component that has the
 You can also mix configuration strategies. Any tests appearing before a `<Sweater>` component with the `config` attribute will be placed into the "default" group.
 
 [](<./mixed/+page.svelte?apply=recipe(path)>)
-
-### **Warning:** Avoid Dangling Tests
 
 > [!CAUTION]
 > Avoid Dangling Tests

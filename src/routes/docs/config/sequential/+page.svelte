@@ -6,20 +6,28 @@
 
 <Sweater config />
 
-<Sweater name="Group 1, Test 1" body={async (harness) => {}}>
-  {#snippet vest(pocket: Pocket)}{/snippet}
+<Sweater body={async (harness) => {}}>
+  {#snippet vest(pocket: Pocket)}
+    ...Group 1, Test 1...
+  {/snippet}
 </Sweater>
 
-<Sweater name="Group 1, Test 2" body={async (harness) => {}}>
-  {#snippet vest(pocket: Pocket)}{/snippet}
+<Sweater body={async (harness) => {}}>
+  {#snippet vest(pocket: Pocket)}
+    ...Group 1, Test 2...
+  {/snippet}
 </Sweater>
 
 <Sweater config />
 
-<Sweater name="Group 2, Test 1" body={async (harness) => {}}>
-  {#snippet vest(pocket: Pocket)}{/snippet}
+<Sweater body={async (harness) => {}}>
+  {#snippet vest(pocket: Pocket)}
+    ...Group 2, Test 1...
+  {/snippet}
 </Sweater>
 
-<Sweater name="Group 2, Test 2" body={async (harness) => {}}>
-  {#snippet vest(pocket: Pocket)}{/snippet}
+<Sweater body={async (harness) => {}}>
+  {#snippet vest(pocket: Pocket)}
+    ...Group 2, Test 2...
+  {/snippet}
 </Sweater>
