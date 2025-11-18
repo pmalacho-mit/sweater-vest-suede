@@ -66,13 +66,6 @@
     url.searchParams.delete(testHasChangedParam);
     window.history.replaceState({}, "", url.toString());
   };
-
-  const makeDisplayScreenSize = () => {
-    const display = document.body.children[0] as HTMLElement;
-    display.style.display = "block";
-    display.style.width = "100vw";
-    display.style.height = "100vh";
-  };
 </script>
 
 <script lang="ts" generics="T extends PocketElements">
@@ -104,8 +97,6 @@
     containers.reset();
     next();
   });
-
-  makeDisplayScreenSize();
 </script>
 
 {#if is("config", props)}
@@ -121,3 +112,11 @@
   <!-- CONDITION: Tests are self-contained / standalone -->
   <Container bind:this={containers[index]} />
 {/if}
+
+<style>
+  :global(body > *:first-child) {
+    display: block !important;
+    width: 100vw;
+    height: 100vh;
+  }
+</style>
