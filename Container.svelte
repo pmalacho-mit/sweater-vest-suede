@@ -14,7 +14,6 @@
   type Orientation = keyof typeof orientations;
 
   export type Props = {
-    theme?: Theme;
     orientation?: Orientation;
     mode?: RunnerProps["mode"];
   };
@@ -108,7 +107,7 @@
   import { defer } from "./utils";
   import { onAbort } from "./utils/abort";
 
-  let { orientation = "horizontal",  mode }: Props = $props();
+  let { orientation = "horizontal", mode }: Props = $props();
 
   let count = 0;
 
