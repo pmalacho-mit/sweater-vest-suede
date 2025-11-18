@@ -4,9 +4,9 @@
 ; git-subrepo command. See https://github.com/ingydotnet/git-subrepo#readme
 ;
 [subrepo]
-	remote = https://github.com/pmalacho-mit/sweater-vest-suede
+	remote = git@github.com:pmalacho-mit/dockview-svelte-suede.git
 	branch = dist
-	commit = 9631207dad70c0b0eb3eda8f419f34580d35a86c
-	parent = 5a42202b9547ed13f044b4c180db8dc8fcbb83b9
+	commit = 071342baef1f70e1703d1cf4301ea1aee2f6a42d
+	parent = a50d9798a5fd43e17a311158ba5006672fbd7e73
 	method = merge
 	cmdver = 0.4.9
