@@ -50,5 +50,7 @@ jobs:
         run: |
           set -e
           source ~/.git-subrepo/.rc
-          git subrepo pull dist -b dist -r "$(git remote get-url origin)" -u || true
-          git subrepo push dist -b dist -r "$(git remote get-url origin)"
+          git subrepo pull dist || true
+          git subrepo push dist
+          git subrepo pull dist
+          git push
