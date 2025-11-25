@@ -4,7 +4,7 @@ Sweater vest (<ins style="color:white"><span style="color:#aa1e1e"><span>**S**</
 
 This repo is a [suede dependency](https://github.com/pmalacho-mit/suede).
 
-To see the installable source code, please checkout the [dist branch](https://github.com/pmalacho-mit/sweater-vest-suede/tree/dist).
+To see the installable source code, please checkout the [release branch](https://github.com/pmalacho-mit/sweater-vest-suede/tree/release).
 
 ## Installation
 
@@ -216,7 +216,7 @@ The `harness` argument provides several utilities that help you write your test:
 - **`expect`** - The assertion function from `@storybook/test` used to set up your test expectations.
 - Additional utilities like `preventRender` and `capture`, and more are available on the harness.
 
-[](<dist/Runner.svelte?region=extract(harness-docs)&wrap=dropdown(See-all-utilities-on-harness.)>)
+[](<release/Runner.svelte?region=extract(harness-docs)&wrap=dropdown(See-all-utilities-on-harness.)>)
 
 <!-- p↓ BEGIN -->
 <!-- p↓ length lines: 59 chars: 1873 -->

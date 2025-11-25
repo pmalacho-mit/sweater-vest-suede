@@ -69,7 +69,7 @@ The `harness` argument provides several utilities that help you write your test:
 - **`expect`** - The assertion function from `@storybook/test` used to set up your test expectations.
 - Additional utilities like `preventRender` and `capture`, and more are available on the harness.
 
-[](<../../../../dist/Runner.svelte?region=extract(harness-docs)&wrap=dropdown(See-all-utilities-on-harness.)>)
+[](<../../../../release/Runner.svelte?region=extract(harness-docs)&wrap=dropdown(See-all-utilities-on-harness.)>)
 
 [](<./+page.svelte?region=extract(script,component),replace(snippet,...),splice-start(body,1)&apply=recipe(no-import)>)
 
