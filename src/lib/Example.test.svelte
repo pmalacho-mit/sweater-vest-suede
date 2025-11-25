@@ -1,6 +1,6 @@
 <script lang="ts">
   import { flushSync } from "svelte";
-  import Sweater from "../../dist";
+  import Sweater from "$release";
   import Example, { type Props } from "./Example.svelte";
 
   class Pocket implements Props {
