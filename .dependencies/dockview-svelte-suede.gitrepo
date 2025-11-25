@@ -4,9 +4,9 @@
 ; git-subrepo command. See https://github.com/ingydotnet/git-subrepo#readme
 ;
 [subrepo]
-	remote = git@github.com:pmalacho-mit/dockview-svelte-suede.git
-	branch = dist
-	commit = 34bf8375d6309992bc14e348add393c55c61d308
-	parent = 65a6dc89436d6675b6cb0c0c6fd8ab0b4ba25996
-	method = merge
-	cmdver = 0.4.9
+  remote = https://github.com/pmalacho-mit/dockview-svelte-suede.git
+  branch = release
+  commit = 54b19e5aee3db5dd91a5524f3647da0315adbe48
+  parent = 8daf96fcb9ff8d634c97117e917a324854d3e3d9
+  method = merge
+  cmdver = 0.4.9
