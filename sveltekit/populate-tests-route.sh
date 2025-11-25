@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Script to populate a SvelteKit test route with demo files from the dist directory.
+# Script to populate a SvelteKit test route with demo files from the release directory.
 #
 # This script copies the necessary demo files into a SvelteKit project's routes
 # directory to set up a working test route.
@@ -14,7 +14,7 @@ usage() {
   cat >&2 <<'USAGE'
 Usage: populate-test-route.sh [OPTIONS]
 
-Populate a SvelteKit project with test route files from the dist directory.
+Populate a SvelteKit project with test route files from the release directory.
 
 Options:
   -d, --destination DIR   Destination SvelteKit project directory 
@@ -28,7 +28,7 @@ Notes:
     or its corresponding routes directory.
   • If the destination doesn't end with 'src/routes/', the script will
     automatically append it.
-  • The script will copy demo files from the dist directory into the
+  • The script will copy demo files from the release directory into the
     target routes directory.
 
 Example:
