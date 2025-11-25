@@ -1,4 +1,4 @@
-[](<?register=recipe(path)&region=remap(,$dist,_angle_path_unangle__slash_sweater-vest-suede,_)>)
+[](<?register=recipe(path)&region=remap(,$release,_angle_path_unangle__slash_sweater-vest-suede,_)>)
 
 [](<?register=recipe(no-body)&region=splice-end(body,5),splice-start(body,-6),replace(body,'...')>)
 

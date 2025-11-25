@@ -12,8 +12,8 @@ const config = {
     // See https://svelte.dev/docs/kit/adapters for more information about adapters.
     adapter: adapter(),
     alias: {
-      $dist: "dist",
-      "$dist/*": "dist/*",
+      $release: "release",
+      "$release/*": "release/*",
     },
   },
 };

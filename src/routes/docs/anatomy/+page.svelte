@@ -1,7 +1,7 @@
 <!-- pd: script -->
 <script lang="ts">
   /** pd: import */
-  import { Sweater } from "$dist";
+  import { Sweater } from "$release";
   /** pd: import */
 
   /* pd: model */

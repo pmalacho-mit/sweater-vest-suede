@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Sweater } from "$dist";
+  import { Sweater } from "$release";
 
   class Pocket {}
 </script>

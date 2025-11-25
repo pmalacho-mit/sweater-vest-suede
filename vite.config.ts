@@ -10,14 +10,14 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      $dist: path.resolve(__dirname, "dist"),
+      $release: path.resolve(__dirname, "release"),
     },
   },
   server: {
     host: "0.0.0.0",
     fs: {
       allow: [
-        path.resolve(__dirname, "dist"),
+        path.resolve(__dirname, "release"),
         path.resolve(__dirname, "dockview-svelte-suede"),
       ],
     },
