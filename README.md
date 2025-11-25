@@ -6,16 +6,16 @@ This repo is a [suede dependency](https://github.com/pmalacho-mit/suede).
 
 To see the installable source code, please checkout the [dist branch](https://github.com/pmalacho-mit/sweater-vest-suede/tree/dist).
 
-## Installation (SSH)
+## Installation
 
 ```bash
-git subrepo clone --branch dist git@github.com:pmalacho-mit/sweater-vest-suede.git ./sweater-vest-suede
+bash <(curl -fsSL https://raw.githubusercontent.com/pmalacho-mit/suede/refs/heads/main/scripts/install-release.sh) --repo pmalacho-mit/sweater-vest-suede
 ```
 
-## Installation (HTTPS)
+To a specific directory
 
 ```bash
-git subrepo clone --branch dist https://github.com/pmalacho-mit/sweater-vest-suede.git ./sweater-vest-suede
+bash <(curl -fsSL https://raw.githubusercontent.com/pmalacho-mit/suede/refs/heads/main/scripts/install-release.sh) --dest <path> --repo pmalacho-mit/dockview-svelte-suede
 ```
 
 [](./src/routes/docs/anatomy/README.md)
