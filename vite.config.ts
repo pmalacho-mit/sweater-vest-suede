@@ -5,9 +5,6 @@ import path from "node:path";
 
 export default defineConfig({
   plugins: [sveltekit()],
-  build: {
-    outDir: "not-applicable",
-  },
   resolve: {
     alias: {
       $release: path.resolve(__dirname, "release"),
