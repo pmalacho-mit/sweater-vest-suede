@@ -8,15 +8,20 @@ To see the installable source code, please checkout the [release branch](https:/
 
 ## Installation
 
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/pmalacho-mit/suede/refs/heads/main/scripts/install-release.sh) --repo pmalacho-mit/sweater-vest-suede
-```
+\`\`\`bash
+bash <(curl https://suede.sh/install-release) --repo pmalacho-mit/sweater-vest-suede
+\`\`\`
 
-To a specific directory
+<details>
+<summary>
+See alternative to using <a href="https://github.com/pmalacho-mit/suede#suedesh">suede.sh</a> script proxy
+</summary>
 
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/pmalacho-mit/suede/refs/heads/main/scripts/install-release.sh) --dest <path> --repo pmalacho-mit/dockview-svelte-suede
-```
+\`\`\`bash
+bash <(curl https://raw.githubusercontent.com/pmalacho-mit/suede/refs/heads/main/scripts/install-release.sh) --repo pmalacho-mit/sweater-vest-suede
+\`\`\`
+
+</details>
 
 [](./src/routes/docs/anatomy/README.md)
 
