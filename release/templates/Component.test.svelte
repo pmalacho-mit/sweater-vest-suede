@@ -5,10 +5,10 @@
 
 <Sweater
   body={async ({ set }) => {
-    set({});
+    set(new Pocket());
   }}
 >
-  {#snippet vest(pocket: {})}
+  {#snippet vest(pocket: Pocket)}  
     <Component />
   {/snippet}
 </Sweater>
