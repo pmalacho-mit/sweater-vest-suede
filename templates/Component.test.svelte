@@ -7,7 +7,7 @@
 
 <Sweater
   body={async ({ set }) => {
-    set(new Pocket());
+    const pocket = set(new Pocket());
   }}
 >
   {#snippet vest(pocket: Pocket)}
