@@ -3,7 +3,7 @@
   import Component, { Model } from "_.svelte";
 
   class Pocket {
-    model = $state<Model>()!;
+    model = $state(null as Model);
     constructor(model: Model) {
       this.model = model;
     }
