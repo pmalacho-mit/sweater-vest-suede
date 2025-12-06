@@ -6,7 +6,7 @@
 [subrepo]
   remote = https://github.com/pmalacho-mit/dockview-svelte-suede.git
   branch = release
-  commit = 54b19e5aee3db5dd91a5524f3647da0315adbe48
-  parent = 8daf96fcb9ff8d634c97117e917a324854d3e3d9
-  method = merge
-  cmdver = 0.4.9
+	commit = 06e89bf88a0ca19d0deff10b8fd39930f63609e6
+	parent = 11270a6d4c9c1811ea5e45f672fbbd9ca962af7a
+	method = merge
+	cmdver = 0.4.9
