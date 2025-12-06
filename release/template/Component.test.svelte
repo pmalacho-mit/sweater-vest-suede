@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { Sweater } from "$sweater-vest-suede";
-  import Component from ".svelte";
+  import { Sweater } from "_sweater-vest-suede";
+  import Component from "_.svelte";
 </script>
 
 <Sweater
