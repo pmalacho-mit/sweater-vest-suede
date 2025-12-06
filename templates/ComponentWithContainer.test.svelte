@@ -8,8 +8,9 @@
 </script>
 
 <Sweater
-  body={async ({ set }) => {
+  body={async ({ set, definition }) => {
     const pocket = set(new Pocket());
+    const { container } = await definition("container");
   }}
 >
   {#snippet vest(pocket: Pocket)}
