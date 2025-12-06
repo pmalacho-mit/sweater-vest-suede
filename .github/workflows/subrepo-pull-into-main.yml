@@ -17,6 +17,12 @@ jobs:
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
 
+      - name: Install git-subrepo
+        run: |
+          git clone https://github.com/ingydotnet/git-subrepo ~/.git-subrepo
+          source ~/.git-subrepo/.rc
+          git subrepo --version
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -92,6 +98,7 @@ jobs:
       - name: Update ./release to latest
         run: |
           set -e
+          source ~/.git-subrepo/.rc
           git subrepo pull ./release
 
       - name: Capture .gitrepo content
