@@ -1,16 +1,14 @@
 <script lang="ts">
   import { Sweater } from "_sweater-vest-suede";
   import Component from "_.svelte";
-
-  class Pocket {}
 </script>
 
 <Sweater
   body={async ({ set }) => {
-    set(new Pocket());
+    set({});
   }}
 >
-  {#snippet vest(pocket: Pocket)}
+  {#snippet vest(pocket: {})}
     <Component />
   {/snippet}
 </Sweater>
