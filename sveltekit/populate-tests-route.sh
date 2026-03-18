@@ -91,7 +91,7 @@ if [[ ! "$DESTINATION" =~ src/routes/?$ ]]; then
   DESTINATION="${DESTINATION%/}/src/routes"
 fi
 
-DESTINATION="${DESTINATION}/tests/[...path]"
+DESTINATION="${DESTINATION}/tests"
 
 # Create the destination directory if it doesn't exist.
 if [[ ! -d "$DESTINATION" ]]; then
@@ -100,10 +100,11 @@ if [[ ! -d "$DESTINATION" ]]; then
 fi
 
 
-
 printf "Populating test route in: %s\n" "$DESTINATION"
 
 cp -r "${DIRNAME}/+page.svelte" "$DESTINATION/"
-cp -r "${DIRNAME}/+page.ts" "$DESTINATION/"
+mkdir -p "$DESTINATION/[...path]"
+cp -r "${DIRNAME}/[...path]/+page.svelte" "$DESTINATION/[...path]/"
+cp -r "${DIRNAME}/[...path]/+page.ts" "$DESTINATION/[...path]/"
 
 printf "Done!\n"

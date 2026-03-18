@@ -1,9 +1,20 @@
 <script lang="ts">
-  import type { PageData } from "./$types";
-
-  let { data }: { data: PageData } = $props();
+  export const routes = Object.keys(
+    import.meta.glob("/src/lib/**/*.test.svelte"),
+  ).map((path) => ({
+    href: "./tests" + (path.startsWith("/") ? path : "/" + path),
+    display: path.replace("/src/lib/", ""),
+  }));
 </script>
 
-{#await import(data.component) then { default: Component }}
-  <Component />
-{/await}
+<h1>Tests</h1>
+
+<ul>
+  {#each routes as route}
+    <li>
+      <a href={route.href}>
+        {route.display}
+      </a>
+    </li>
+  {/each}
+</ul>
