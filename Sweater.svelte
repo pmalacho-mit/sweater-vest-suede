@@ -2,7 +2,7 @@
   import type { Props as RunnerProps, Pocket } from "./Runner.svelte";
   import type { Props as ContainerProps } from "./Container.svelte";
   import Container, { next, setTotal } from "./Container.svelte";
-  import { onMount, tick, type Snippet } from "svelte";
+  import type { Snippet } from "svelte";
   import { createContainerMap } from "./utils/container-map";
 
   type ConfigProps = ContainerProps & {
@@ -21,7 +21,7 @@
 
   const is = <T extends "config" | "test">(
     type: T,
-    props: ConfigProps | RunnerProps<any>
+    props: ConfigProps | RunnerProps<any>,
   ): props is T extends "config" ? ConfigProps : RunnerProps<any> => {
     const hasConfig = "config" in props && props.config;
     return type === "config" ? hasConfig : !hasConfig;
@@ -51,7 +51,7 @@
     const url = location();
     if (url.searchParams.has(testHasChangedParam))
       return console.error(
-        "Reload parameter already set. Not reloading to avoid infinite loop."
+        "Reload parameter already set. Not reloading to avoid infinite loop.",
       );
     url.searchParams.set(testHasChangedParam, "1");
     window.location.href = url.toString(); // trigger reload
@@ -66,6 +66,8 @@
 </script>
 
 <script lang="ts" generics="T extends Pocket">
+  import { onMount, tick } from "svelte";
+
   let props: Props<T> = $props();
 
   const index = counts.total();
