@@ -5,7 +5,7 @@
      *
      * NOTE: The location of your vite config corresponds to `/`.
      */
-    globResult: Record<string, unknown>;
+    glob: Record<string, unknown>;
   };
 
   interface Tree {
@@ -44,7 +44,7 @@
 
   const resolve = (
     value: string,
-    entries: Props["globResult"],
+    entries: Props["glob"],
   ): string | undefined => {
     const paths = Object.keys(entries);
 
@@ -79,7 +79,7 @@
 <script lang="ts">
   import type { Component } from "svelte";
 
-  let { globResult }: Props = $props();
+  let { glob }: Props = $props();
 
   const selected = $derived(
     new URLSearchParams(window.location.search).get("component"),
@@ -88,7 +88,7 @@
   const tests = $derived.by<Tree>(() => {
     const tree: Tree = {};
 
-    for (const path of Object.keys(globResult)) {
+    for (const path of Object.keys(glob)) {
       const segments = path.replace(/^\/+/, "").split("/").filter(Boolean);
       const fileName = segments.pop();
 
@@ -120,18 +120,18 @@
   const component = $derived.by(() => {
     if (!selected) return;
 
-    const selectedPath = resolve(selected, globResult);
+    const selectedPath = resolve(selected, glob);
 
     if (!selectedPath)
       return console.error(
         `Could not resolve component from selection "${selected}".`,
       );
 
-    return isModule(globResult[selectedPath])
-      ? globResult[selectedPath]().then(({ default: Component }) => Component)
+    return isModule(glob[selectedPath])
+      ? glob[selectedPath]().then(({ default: Component }) => Component)
       : console.error(
           `Expected glob result for "${selectedPath}" to be an importer function, but got:`,
-          globResult[selectedPath],
+          glob[selectedPath],
         );
   });
 </script>
