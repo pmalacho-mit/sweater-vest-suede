@@ -13,10 +13,7 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     fs: {
-      allow: [
-        path.resolve(__dirname, "release"),
-        path.resolve(__dirname, "dockview-svelte-suede"),
-      ],
+      allow: [path.resolve(__dirname, "release")],
     },
   },
   test: {

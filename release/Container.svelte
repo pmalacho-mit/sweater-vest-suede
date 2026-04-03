@@ -1,6 +1,6 @@
 <script lang="ts" module>
-  import { type PanelProps, type ViewAPI } from "../dockview-svelte-suede";
-  import "../dockview-svelte-suede/styles/dockview.css";
+  import { type PanelProps, type ViewAPI } from "./suede/dockview-svelte-suede";
+  import "./suede/dockview-svelte-suede/styles/dockview.css";
 
   const orientations = {
     horizontal: "HORIZONTAL",
@@ -34,7 +34,7 @@
   const position = (
     index: number,
     props: RunnerProps,
-    orientation: Orientation
+    orientation: Orientation,
   ): Options["position"] =>
     index === 0
       ? undefined
@@ -46,7 +46,7 @@
   const options = (
     index: number,
     props: RunnerProps,
-    orientation: Orientation
+    orientation: Orientation,
   ): Options => ({
     id: id(index),
     position: position(index, props, orientation),
@@ -100,7 +100,7 @@
 </script>
 
 <script lang="ts">
-  import { GridView } from "../dockview-svelte-suede";
+  import { GridView } from "./suede/dockview-svelte-suede";
   import Runner, { type Props as RunnerProps, reset } from "./Runner.svelte";
   import { defer } from "./utils";
   import { onAbort } from "./utils/abort";
