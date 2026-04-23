@@ -7,7 +7,7 @@
   import until from "./utils/until";
   import { createTestAbortMechanism, TestAborted } from "./utils/abort";
 
-  import { type Snippet } from "svelte";
+  import { flushSync, type Snippet } from "svelte";
 
   export type Pocket = Record<string, any>;
 
@@ -62,7 +62,7 @@
      * This should be used in place of `import("@storybook/test").userEvent`.
      */
     withUserFocus: (
-      fn: (userEvent: typeof test.userEvent) => Promise<void>
+      fn: (userEvent: typeof test.userEvent) => Promise<void>,
     ) => Promise<void>;
   } & Omit<typeof import("@storybook/test"), "userEvent">;
   /* pd: harness-docs */
@@ -70,12 +70,60 @@
   type Mode = Required<PromiseQueue>["Types"]["Task"]["mode"];
 
   export type Props<T extends Pocket = Pocket> = {
+    /**
+     * The snippet rendered as the visual output of this test.
+     * Receives the current `pocket` instance as its only argument.
+     */
     vest: Snippet<[pocket: T]>;
+    /**
+     * The async test body. Receives a `harness` with utilities for
+     * setting up state, interacting with the DOM, and making assertions.
+     * @example
+     * body={async ({ set, expect, container }) => {
+     *   set(new Pocket(...));
+     *   expect(container.querySelector("input")).not.toBeNull();
+     * }}
+     */
     body: (harness: TestHarness<T>) => Promise<void>;
+    /**
+     * Display name for this test.
+     */
     name?: string;
+    /**
+     * Stable identifier for this test. Useful for targeting a specific
+     * test when the file contains many.
+     */
     id?: string;
+    /**
+     * Controls how this test is scheduled relative to others in its group.
+     * - `"parallel"` (default) — runs concurrently with other parallel tests.
+     * - `"serial"` — waits for all preceding tests to complete before starting.
+     */
     mode?: Mode;
+    /**
+     * When `true`, the test will not start automatically — it must be
+     * triggered manually (e.g. via a UI button). Defaults to `false`.
+     */
     manual?: boolean;
+    /**
+     * When `true`, `pocket` is initialized as `undefined` and the `vest`
+     * snippet will not render until `harness.set()` is called.
+     * Use this when the pocket needs to be constructed asynchronously
+     * before the component mounts.
+     * @example
+     * <Sweater lazy body={async (harness) => {
+     *   const data = await fetchSomething();
+     *   harness.set(new Pocket(data)); // vest then renders here
+     *   // NOTE: `set` internally calls `svelte.flushSync` to force UI updates before continuing with test body
+     * }}>
+     */
+    lazy?: boolean;
+    /**
+     * Controls where this test panel is positioned relative to its siblings
+     * in the grid layout.
+     * - `"above"` | `"below"` | `"left"` | `"right"` — docks beside a sibling.
+     * - `"within"` — stacks inside the same panel as a sibling (tabbed).
+     */
     position?: "above" | "below" | "left" | "right" | "within";
   };
 
@@ -92,7 +140,7 @@
 
   const userFocusQueue = new PromiseQueue().open();
   const withUserFocus = (
-    fn: (userEvent: typeof test.userEvent) => Promise<void>
+    fn: (userEvent: typeof test.userEvent) => Promise<void>,
   ) => userFocusQueue.add("serial", () => fn(test.userEvent)).complete;
 
   const delay = async (amount: Delay): Promise<void> => {
@@ -108,7 +156,7 @@
           ? amount.seconds * 1000
           : "minutes" in amount
             ? amount.minutes * 60 * 1000
-            : 0
+            : 0,
     );
   };
 
@@ -128,7 +176,7 @@
   const subscribeToDefinition = <T extends Pocket, K extends keyof T>(
     pocket: T,
     key: K,
-    cleanup: Set<() => void>
+    cleanup: Set<() => void>,
   ) => {
     const deferred = defer<Required<T>[K]>();
     const unsubscribe = $effect.root(() => {
@@ -151,14 +199,16 @@
   let {
     body,
     vest,
+    name,
     mode = "parallel",
     manual = false,
+    lazy = false,
     begin,
   }: Props<T> & { begin: Begin } = $props();
 
   let container = $state.raw<HTMLDivElement>();
   let gate = $state.raw<Promise<any>>();
-  let pocket = $state({} as T);
+  let pocket = $state(lazy ? undefined : ({} as T));
   let prevented = $state(manual);
 
   /* svelte-ignore non_reactive_update */
@@ -168,9 +218,11 @@
 
   const abort = createTestAbortMechanism();
 
-  const set = abort.wrap(
-    (payload) => (pocket = payload) satisfies Harness["set"]
-  );
+  const set = abort.wrap(((payload) => {
+    pocket = payload;
+    if (lazy) flushSync();
+    return pocket;
+  }) satisfies Harness["set"]);
 
   const definition = abort.wrap((async (...keys) => {
     const cleanup = new Set<() => void>();
@@ -180,8 +232,8 @@
         keys.map((key) =>
           defined(pocket[key])
             ? Promise.resolve(pocket[key])
-            : subscribeToDefinition(pocket, key, cleanup)
-        )
+            : subscribeToDefinition(pocket, key, cleanup),
+        ),
       ),
       abort.until,
     ]);
@@ -240,10 +292,10 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
   });
 </script>
 
-<div bind:this={container} style="height: 100%;">
+<div bind:this={container} style="height: 100%;" title={name}>
   {#if container && gate}
     {#await gate then}
-      {#if !prevented}
+      {#if !prevented && (!lazy || pocket)}
         {@render vest(pocket)}
         {void (rendered = true)}
       {/if}
