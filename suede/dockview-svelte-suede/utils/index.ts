@@ -38,7 +38,7 @@ import type {
 } from "./types.js";
 import PanelRendererBase from "./PanelRendererBase.js";
 import ReactivePanelUpdater from "./reactivity.svelte.js";
-import type { Theme } from "./themes.js";
+import type { Theme } from "./themes";
 
 /**
  * The props for the React version of the different view components
@@ -122,7 +122,7 @@ export type DockviewSpecificComponentConstraint = {
  */
 export type SelectivelyRequiredPanelComponentPropsByView<
   T extends RecordLike = RecordLike,
-  Required extends OriginalPanelPropKeys = "params",
+  Required extends OriginalPanelPropKeys = "params"
 > = {
   grid: RequiredAndPartial<IGridviewPanelProps<T>, Required>;
   dock: RequiredAndPartial<IDockviewPanelProps<T>, Required>;
@@ -146,10 +146,8 @@ export type AdditionalAddPanelOptions<ViewType extends ViewKey> =
   ViewType extends "pane"
     ? /**/ { headers: PanePanelHeaderConstraint }
     : /**/ ViewType extends "dock"
-      ? /**/ {
-          tabs: DockviewTabConstraint;
-        } & DockviewSpecificComponentConstraint
-      : /**/ never;
+    ? /**/ { tabs: DockviewTabConstraint } & DockviewSpecificComponentConstraint
+    : /**/ never;
 
 type BaseOmittedPanelOptionKeys = "id" | "component" | "params";
 type OmittedPanelOptionKeysPerType<T extends ViewKey> = T extends "pane"
@@ -158,7 +156,7 @@ type OmittedPanelOptionKeysPerType<T extends ViewKey> = T extends "pane"
 
 type CustomizedAddPanelOptions<
   T extends ViewKey,
-  Additional extends AdditionalAddPanelOptions<T> = never,
+  Additional extends AdditionalAddPanelOptions<T> = never
 > = Omit<
   RawAddPanelOptions<T>,
   BaseOmittedPanelOptionKeys | OmittedPanelOptionKeysPerType<T>
@@ -176,58 +174,50 @@ type CustomizedAddPanelOptions<
 type ComponentPanelPropParams<
   ViewType extends ViewKey,
   K extends keyof Components,
-  Components extends ComponentsConstraint<ViewType>,
-> =
-  Components[K] extends Component<
-    infer Props extends SelectivelyRequiredPanelComponentPropsByView[ViewType]
-  >
-    ? Props["params"]
-    : never;
+  Components extends ComponentsConstraint<ViewType>
+> = Components[K] extends Component<
+  infer Props extends SelectivelyRequiredPanelComponentPropsByView[ViewType]
+>
+  ? Props["params"]
+  : never;
 
 type SpreadAddComponentPanelOptions<
   ViewType extends ViewKey,
   K extends keyof Components,
   Components extends ComponentsConstraint<ViewType>,
-  Additional extends AdditionalAddPanelOptions<ViewType>,
-> =
-  ComponentPanelPropParams<ViewType, K, Components> extends Record<string, any>
-    ? /**/ /**/
-        | [ComponentPanelPropParams<ViewType, K, Components>]
-        /**/
-        | [
-            ComponentPanelPropParams<ViewType, K, Components>,
-            CustomizedAddPanelOptions<ViewType, Additional>,
-          ]
-    : /**/ /**/
-        | [
-            null | undefined | {},
-            CustomizedAddPanelOptions<ViewType, Additional>,
-          ]
-        /**/
-        | [];
+  Additional extends AdditionalAddPanelOptions<ViewType>
+> = ComponentPanelPropParams<ViewType, K, Components> extends Record<
+  string,
+  any
+>
+  ? /**/ /**/
+    | [ComponentPanelPropParams<ViewType, K, Components>]
+      /**/
+      | [
+          ComponentPanelPropParams<ViewType, K, Components>,
+          CustomizedAddPanelOptions<ViewType, Additional>
+        ]
+  : /**/ /**/
+    | [null | undefined | {}, CustomizedAddPanelOptions<ViewType, Additional>]
+      /**/
+      | [];
 
 type SpreadAddSnippetPanelOptions<
   ViewType extends ViewKey,
   K extends keyof Snippets,
   Snippets extends SnippetsConstraint<ViewType>,
-  Additional extends AdditionalAddPanelOptions<ViewType>,
-> =
-  Snippets[K] extends Snippet<
-    infer Params extends [
-      SelectivelyRequiredPanelComponentPropsByView[ViewType],
-    ]
-  >
-    ? /**/ /**/
-        | [Params[0]["params"]]
-        /**/
-        | [Params[0]["params"], CustomizedAddPanelOptions<ViewType, Additional>]
-    : /**/ /**/
-        | [
-            null | undefined | {},
-            CustomizedAddPanelOptions<ViewType, Additional>,
-          ]
-        /**/
-        | [];
+  Additional extends AdditionalAddPanelOptions<ViewType>
+> = Snippets[K] extends Snippet<
+  infer Params extends [SelectivelyRequiredPanelComponentPropsByView[ViewType]]
+>
+  ? /**/ /**/
+    | [Params[0]["params"]]
+      /**/
+      | [Params[0]["params"], CustomizedAddPanelOptions<ViewType, Additional>]
+  : /**/ /**/
+    | [null | undefined | {}, CustomizedAddPanelOptions<ViewType, Additional>]
+      /**/
+      | [];
 
 export const reactive = <T>(getter: () => T): T =>
   new ReactivePanelUpdater(getter) as T;
@@ -236,8 +226,7 @@ export type ExtendedGridAPI<
   ViewType extends ViewKey,
   Components extends ComponentsConstraint<ViewType>,
   Snippets extends SnippetsConstraint<ViewType>,
-  Additional extends AdditionalAddPanelOptions<ViewType> =
-    AdditionalAddPanelOptions<ViewType>,
+  Additional extends AdditionalAddPanelOptions<ViewType> = AdditionalAddPanelOptions<ViewType>
 > = {
   addComponentPanel: <K extends keyof Components & string>(
     name: string extends K ? never : K,
@@ -274,7 +263,7 @@ export type ViewAPI<
   ViewType extends ViewKey,
   Components extends ComponentsConstraint<ViewType>,
   Snippets extends SnippetsConstraint<ViewType>,
-  Additional extends AdditionalAddPanelOptions<ViewType> = never,
+  Additional extends AdditionalAddPanelOptions<ViewType> = never
 > = RawViewAPIs[ViewType] &
   ExtendedGridAPI<ViewType, Components, Snippets, Additional>;
 
@@ -285,7 +274,7 @@ type CustomizedViewProps<
   ViewType extends ViewKey,
   Components extends ComponentsConstraint<ViewType>,
   Snippets extends SnippetsConstraint<ViewType>,
-  Additional extends AdditionalAddPanelOptions<ViewType> = never,
+  Additional extends AdditionalAddPanelOptions<ViewType> = never
 > = {
   /**
    * CAUTION: Snippets with no arguments (like the one below) do unfortunately satisfy the `components` type costraint, but must be provided within the `snippets` object
@@ -305,7 +294,7 @@ type CustomizedViewProps<
   onReady?: (
     event: Parameters<OnReady<ViewType>>[0] & {
       api: ExtendedGridAPI<ViewType, Components, Snippets, Additional>;
-    },
+    }
   ) => ReturnType<OnReady<ViewType>>;
 } & ("orientation" extends keyof RawViewProps<ViewType>
   ? { orientation: Orientation | "HORIZONTAL" | "VERTICAL" }
@@ -324,7 +313,7 @@ export type ModifiedProps<
   ViewType extends ViewKey,
   Components extends ComponentsConstraint<ViewType>,
   Snippets extends SnippetsConstraint<ViewType>,
-  Additional extends AdditionalAddPanelOptions<ViewType> = never,
+  Additional extends AdditionalAddPanelOptions<ViewType> = never
 > = Omit<
   RawViewProps<ViewType>,
   | keyof CustomizedViewProps<ViewType, Components, Snippets, Additional>
@@ -341,14 +330,14 @@ export type AdditionalPaneProps<
   Headers extends {
     components: ComponentsConstraint<"pane">;
     snippets: SnippetsConstraint<"pane">;
-  },
+  }
 > = {
   headers?: Partial<Headers>;
 };
 
 export const extractCoreOptions = <In extends {}, Out>(
   props: In,
-  propertyKeys: (keyof In | keyof Out)[],
+  propertyKeys: (keyof In | keyof Out)[]
 ): Out =>
   propertyKeys.reduce((obj, key) => {
     if (key in props) obj[key as keyof Out] = props[key as keyof In] as any;
@@ -365,11 +354,11 @@ type Prefix = (typeof prefix)[keyof typeof prefix];
 export const createExtendedAPI = <
   ViewType extends ViewKey,
   Components extends ComponentsConstraint<ViewType>,
-  Snippets extends SnippetsConstraint<ViewType>,
+  Snippets extends SnippetsConstraint<ViewType>
 >(
   type: ViewType,
   api: RawViewAPIs[ViewType],
-  viewIndex: number,
+  viewIndex: number
 ) => {
   type Target = ExtendedGridAPI<ViewType, Components, Snippets>;
   type CommonArgs =
@@ -393,10 +382,10 @@ export const createExtendedAPI = <
   ) => {
     const withPrefix = prefix + name;
     const { length } = args;
-    const params = length >= 1 ? (args[0] ?? {}) : {};
+    const params = length >= 1 ? args[0] ?? {} : {};
 
     const config = length === 2 ? args[1] : null;
-    const id = length === 2 ? (config?.id ?? withPrefix) : withPrefix;
+    const id = length === 2 ? config?.id ?? withPrefix : withPrefix;
 
     const title = (config as any as PaneConfig)?.title ?? name;
 
@@ -441,7 +430,7 @@ export const createExtendedAPI = <
     const [exportsPromise, panel, reference] = common<Exports>(
       prefix.component,
       component,
-      ...args,
+      ...args
     );
     const exports = await exportsPromise;
     return { exports, panel, reference };
@@ -468,7 +457,7 @@ export const createExtendedAPI = <
 const getSnippetPostProcessor =
   <ViewType extends ViewKey, Snippets extends SnippetsConstraint<ViewType>>(
     snippets: Snippets,
-    name: string,
+    name: string
   ) =>
   (props: PanelComponentProps) => {
     const snippet = snippets[name];
@@ -482,12 +471,12 @@ const CastedSnippetRender = SnippetRender as any as ConstrainedComponent;
 export const getComponentToMount = <
   ViewType extends ViewKey,
   Components extends ComponentsConstraint<ViewType>,
-  Snippets extends SnippetsConstraint<ViewType>,
+  Snippets extends SnippetsConstraint<ViewType>
 >(
   type: ViewType,
   components: Components | undefined,
   snippets: Snippets | undefined,
-  { name }: Parameters<FrameworkOptions<ViewType>["createComponent"]>[0],
+  { name }: Parameters<FrameworkOptions<ViewType>["createComponent"]>[0]
 ) => {
   const isSnippet = name.startsWith(prefix.snippet);
 
@@ -502,7 +491,7 @@ export const getComponentToMount = <
     else if (snippet) {
       const propsPostProcessor = getSnippetPostProcessor<ViewType, Snippets>(
         snippets!,
-        name,
+        name
       );
       return { name, component: CastedSnippetRender, propsPostProcessor };
     } else throw new Error(`Component '${name}' not found`);
@@ -527,18 +516,18 @@ export type Renderables<ViewType extends ViewKey> = Record<
 
 export type ExtractComponentsFromRenderables<
   ViewType extends ViewKey,
-  TRenderables extends Renderables<ViewType>,
+  TRenderables extends Renderables<ViewType>
 > = OmitNever<{
   [k in keyof TRenderables]: TRenderables[k] extends Snippet<any>
     ? never
     : TRenderables[k] extends ComponentsConstraint<ViewType>[string]
-      ? TRenderables[k]
-      : never;
+    ? TRenderables[k]
+    : never;
 }>;
 
 export type ExtractSnippetsFromRenderables<
   ViewType extends ViewKey,
-  TRenderables extends Renderables<ViewType>,
+  TRenderables extends Renderables<ViewType>
 > = OmitNever<{
   [k in keyof TRenderables]: TRenderables[k] extends Snippet<any>
     ? TRenderables[k]
