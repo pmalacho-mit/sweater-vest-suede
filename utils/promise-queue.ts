@@ -1,4 +1,4 @@
-import { type Deferred, defer } from "./";
+import { type Deferred, defer } from ".";
 
 export class PromiseQueue {
   Types?: {
@@ -21,7 +21,7 @@ export class PromiseQueue {
 
   add(
     mode: Required<PromiseQueue>["Types"]["Task"]["mode"],
-    fn: () => Promise<any>
+    fn: () => Promise<any>,
   ) {
     let task: Required<PromiseQueue>["Types"]["Task"];
 
