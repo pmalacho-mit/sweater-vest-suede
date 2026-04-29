@@ -1,12 +1,6 @@
 <script lang="ts" module>
   import { type PanelProps, type ViewAPI } from "./suede/dockview-svelte-suede";
   import "./suede/dockview-svelte-suede/styles/dockview.css";
-  import Runner, {
-    type Props as RunnerProps,
-    type Error,
-    reset,
-  } from "./Runner.svelte";
-  import { onAbort, TestAborted } from "./utils/abort";
 
   const orientations = {
     horizontal: "HORIZONTAL",
@@ -21,17 +15,6 @@
     class?: string;
     style?: string;
   };
-
-  export const mechanism = {
-    /** Tests are childed under a config Sweater */
-    nested: "nested",
-    /** Configs are provided sequentially (so subsequent tests fall under the closest previous config Sweater) */
-    sequential: "sequential",
-    /** Tests are self-contained / standalone (so no config Sweater is used) */
-    selfContained: "self-contained",
-  } as const;
-
-  export type Mechanism = (typeof mechanism)[keyof typeof mechanism];
 
   const warnIfFirstAndHasPosition = (index: number, props: RunnerProps) => {
     if (index > 0 || !props.position) return;
@@ -77,21 +60,25 @@
   const untilEmpty = async (signal: AbortSignal) => {
     let cancelled = false;
     onAbort(signal, () => (cancelled = true));
-    while (aborts.size > 0 && !cancelled)
+    let currentTime = Date.now();
+    while (aborts.size > 0 && !cancelled) {
+      if (Date.now() - currentTime > 500) {
+        console.log("waiting");
+        currentTime = Date.now();
+      }
       await new Promise(requestAnimationFrame);
+    }
   };
-
-  /**
-   * Time in milliseconds to wait before forcefully aborting ongoing operations.
-   */
-  const AbortTimeoutMs = 1000;
 
   const timeout = (signal: AbortSignal) => {
     let timeout: ReturnType<typeof setTimeout>;
     onAbort(signal, () => clearTimeout(timeout));
-    return new Promise<void>(
-      (resolve) => (timeout = setTimeout(resolve, AbortTimeoutMs)),
-    );
+    return new Promise<void>((resolve) => {
+      timeout = setTimeout(() => {
+        console.log("timeout");
+        resolve();
+      }, 1000);
+    });
   };
 
   const pending = {
@@ -110,23 +97,17 @@
   let total = $state(1);
   export const setTotal = (n: number) => (total = n);
   const heightPercentage = $derived(100 / total);
-
-  let count = 0;
 </script>
 
 <script lang="ts">
   import { GridView } from "./suede/dockview-svelte-suede";
+  import Runner, { type Props as RunnerProps, reset } from "./Runner.svelte";
   import { defer } from "./utils";
+  import { onAbort } from "./utils/abort";
 
-  let {
-    orientation = "horizontal",
-    mode,
-    ...rest
-  }: Props & { mechanism: Mechanism } = $props();
+  let { orientation = "horizontal", mode, ...rest }: Props = $props();
 
-  let tests = 0;
-
-  const index = count++;
+  let count = 0;
 
   type API = ViewAPI<"grid", { child: typeof child }>;
 
@@ -135,25 +116,15 @@
   const withDefaults = (props: RunnerProps) => ({
     ...props,
     mode: props.mode ?? mode,
-    error: (e: any) => {
-      if (e instanceof TestAborted) return;
-      console.group("❌ Test Failed");
-      console.error("Error:", e);
-      console.error("Message:", e?.message);
-      console.error("Name:", e?.name);
-      console.error("Stack:", e?.stack);
-      if (e?.matcherResult) console.error("Matcher Result:", e.matcherResult);
-      console.groupEnd();
-    },
   });
 
   export const push = async (props: RunnerProps) => {
     pending.abort ??= abort();
     const [api] = await Promise.all([promise, pending.abort]);
-    const test = tests++;
-    const resolved = withDefaults(props);
-    warnIfFirstAndHasPosition(test, resolved);
-    api.addSnippetPanel("child", resolved, options(test, props, orientation));
+    const index = count++;
+    props = withDefaults(props);
+    warnIfFirstAndHasPosition(index, props);
+    api.addSnippetPanel("child", props, options(index, props, orientation));
   };
 </script>
 
@@ -165,7 +136,7 @@
   </style>
 </svelte:head>
 
-{#snippet child({ params }: PanelProps<"grid", RunnerProps & { error: Error }>)}
+{#snippet child({ params }: PanelProps<"grid", RunnerProps>)}
   <Runner
     {...params}
     begin={(abort) => {

@@ -1,7 +1,7 @@
 <script lang="ts" module>
   import type { Props as RunnerProps, Pocket } from "./Runner.svelte";
   import type { Props as ContainerProps } from "./Container.svelte";
-  import Container, { mechanism, next, setTotal } from "./Container.svelte";
+  import Container, { next, setTotal } from "./Container.svelte";
   import type { Snippet } from "svelte";
   import { createContainerMap } from "./utils/container-map";
 
@@ -100,24 +100,16 @@
 
 {#if is("config", props)}
   {#if props.children}
-    <Container
-      bind:this={containers.current}
-      {...props}
-      mechanism={mechanism.nested}
-    />
+    <!-- CONDITION: Tests are childed under a config -->
+    <Container bind:this={containers.current} {...props} />
     {@render props.children()}
   {:else}
-    <Container
-      bind:this={containers[index]}
-      {...props}
-      mechanism={mechanism.sequential}
-    />
+    <!-- CONDITION: Configs are provided sequentially (so subsequent tests fall under the closest previous config) -->
+    <Container bind:this={containers[index]} {...props} />
   {/if}
 {:else if selfContained}
-  <Container
-    bind:this={containers[index]}
-    mechanism={mechanism.selfContained}
-  />
+  <!-- CONDITION: Tests are self-contained / standalone -->
+  <Container bind:this={containers[index]} />
 {/if}
 
 <style>
