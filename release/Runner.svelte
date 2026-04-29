@@ -1,5 +1,4 @@
 <script lang="ts" module>
-  /* TODO: should retrieve dynamically in the case of playwright? */
   import * as test from "@storybook/test";
   import { defer, accumulate } from "./utils";
   import { createCapturer } from "./utils/capture";
@@ -130,6 +129,7 @@
   type Abort = () => void;
   type Complete = () => void;
   type Begin = (abort: Abort) => Complete;
+  export type Error = (e: any) => void;
 
   export const reset = () => {
     queue = new PromiseQueue();
@@ -158,16 +158,6 @@
             ? amount.minutes * 60 * 1000
             : 0,
     );
-  };
-
-  const logError = (e: any) => {
-    console.group("❌ Test Failed");
-    console.error("Error:", e);
-    console.error("Message:", e?.message);
-    console.error("Name:", e?.name);
-    console.error("Stack:", e?.stack);
-    if (e?.matcherResult) console.error("Matcher Result:", e.matcherResult);
-    console.groupEnd();
   };
 
   const defined = <T,>(value: T | undefined | null): value is T =>
@@ -204,7 +194,11 @@
     manual = false,
     lazy = false,
     begin,
-  }: Props<T> & { begin: Begin } = $props();
+    error,
+  }: Props<T> & {
+    begin: Begin;
+    error: Error;
+  } = $props();
 
   let container = $state.raw<HTMLDivElement>();
   let gate = $state.raw<Promise<any>>();
@@ -275,18 +269,11 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
       delay,
     });
 
-    gate = queue.add(mode, () => {
-      const complete = begin(() => controller.abort("Test has been aborted"));
-      const exit = () => {
-        complete();
-      };
-      return body(harness)
-        .then(exit)
-        .catch((e) => {
-          if (!(e instanceof TestAborted)) logError(e);
-          exit();
-        });
-    }).start;
+    gate = queue.add(mode, () =>
+      body(harness)
+        .catch(error)
+        .finally(begin(() => controller.abort("Test has been aborted"))),
+    ).start;
 
     queue.open();
   });
