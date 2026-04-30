@@ -209,6 +209,7 @@ export const singleSessionSuite = (import_meta_dirname: string) => {
 
   return {
     config,
+    open: () => {},
     evaluate: evaluate.bind(null, config) as <Return>(
       fn: () => Return,
     ) => Promise<Return>,
