@@ -1,9 +1,7 @@
 import { resolve } from "node:path";
 import { container, image } from "../programmatic-docker-suede";
 import { devcontainerNetwork } from "../programmatic-docker-suede/devcontainer.js";
-import CommandStream, {
-  type CompletedResult,
-} from "../programmatic-docker-suede/CommandStream.js";
+import CommandStream from "../programmatic-docker-suede/CommandStream.js";
 import defaults from "./defaults.js";
 
 /**
@@ -24,7 +22,8 @@ const context = resolve(__dirname, "docker");
 type Options = Partial<
   typeof defaults & {
     onBuild: (stream: CommandStream) => void;
-    log?: boolean;
+    log: boolean;
+    network: string;
   }
 >;
 
@@ -66,7 +65,7 @@ export const buildAndRun = async (BROWSER: Browser, details?: Options) => {
   if (exit !== 0)
     throw new Error(`Build failed for ${tag} with error:\n${err}`);
 
-  const network = await devcontainerNetwork();
+  const network = details?.network ?? (await devcontainerNetwork());
 
   const command = details?.command ?? defaults.command;
   return container.run({ network, name, command, image: tag });

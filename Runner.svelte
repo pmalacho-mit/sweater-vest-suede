@@ -4,8 +4,7 @@
   import { createCapturer } from "./utils/capture";
   import { PromiseQueue } from "./utils/promise-queue";
   import until from "./utils/until";
-  import { createTestAbortMechanism, TestAborted } from "./utils/abort";
-
+  import { createTestAbortMechanism } from "./utils/abort";
   import { flushSync, type Snippet } from "svelte";
 
   export type Pocket = Record<string, any>;
@@ -219,14 +218,18 @@
   }) satisfies Harness["set"]);
 
   const definition = abort.wrap((async (...keys) => {
+    if (!pocket)
+      throw new Error(
+        "Pocket is not initialized. When using `lazy`, make sure to call `harness.set()` before accessing `harness.definition()`.",
+      );
     const cleanup = new Set<() => void>();
 
     const resolved = await Promise.race([
       Promise.all(
         keys.map((key) =>
-          defined(pocket[key])
-            ? Promise.resolve(pocket[key])
-            : subscribeToDefinition(pocket, key, cleanup),
+          defined(pocket![key])
+            ? Promise.resolve(pocket![key])
+            : subscribeToDefinition(pocket!, key, cleanup),
         ),
       ),
       abort.until,
@@ -283,7 +286,7 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
   {#if container && gate}
     {#await gate then}
       {#if !prevented && (!lazy || pocket)}
-        {@render vest(pocket)}
+        {@render vest(pocket!)}
         {void (rendered = true)}
       {/if}
     {/await}
