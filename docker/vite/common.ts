@@ -220,6 +220,16 @@ export const sessionSuite = (import_meta_dirname: string) => {
       container
         .exec(config.vite.container, ["sed", "-i", edit, src(file)])
         .complete(),
+    /** Inserts `content` as the first line inside a `<script lang="ts" module>` block. */
+    prependToSvelteModule: (file: string, content: string) =>
+      container
+        .exec(config.vite.container, [
+          "sed",
+          "-i",
+          `/<script lang="ts" module>/a ${content}`,
+          src(file),
+        ])
+        .complete(),
     open: async () => {
       const tabIndex = await session.newTab(config.vite.url);
       return {
