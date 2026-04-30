@@ -1,6 +1,0 @@
-**/.DS_Store
-node_modules
-.dependencies/*
-!.dependencies/*.gitrepo
-!.dependencies/package.json
-!.dependencies/requirements.txt
