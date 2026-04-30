@@ -195,66 +195,49 @@ export const playwright = {
       ),
 };
 
-export class Session {
-  readonly #container: string;
-  readonly #session: string;
-  readonly #browser: Browser;
+export const sessionWithTabs = async (
+  container: string,
+  session: string,
+  browser: Browser,
+) => {
+  await playwright.open(container, browser, session);
 
-  #queue: Promise<void> = Promise.resolve();
+  const selectTab = (index: number) =>
+    playwright.selectTab(container, index, session);
 
-  constructor(container: string, session: string, browser: Browser) {
-    this.#container = container;
-    this.#session = session;
-    this.#browser = browser;
-  }
-
-  open(url?: string) {
-    return playwright.open(
-      this.#container,
-      this.#browser,
-      this.#session,
-      url ?? "about:blank",
-    );
-  }
-
-  newTab(url: string) {
-    return playwright.newTab(this.#container, url, this.#session);
-  }
-
-  selectTab(index: number) {
-    return playwright.selectTab(this.#container, index, this.#session);
-  }
-
-  withTabSelected<Return>(
-    index: number,
-    fn: () => Return,
-  ): Promise<Awaited<Return>> {
-    const result = this.#queue.then(async () => {
-      await this.selectTab(index);
-      return fn();
-    }) as Promise<Awaited<Return>>;
-    this.#queue = result.then(Session.advance, Session.advance);
-    return result;
-  }
-
-  evaluateOnTab<Return>(index: number, fn: () => Return) {
-    return this.withTabSelected(index, () =>
-      playwright.evaluate<Return>(this.#container, fn, this.#session),
-    );
-  }
-
-  consoleForTab(index: number) {
-    return this.withTabSelected(index, () =>
-      playwright.console(this.#container, this.#session),
-    );
-  }
+  let queue = Promise.resolve();
 
   /**
    * No-op used to advance the tail of a promise chain,
    * regardless of success/failure so it never stalls.
    */
-  private static advance = () => {};
-}
+  const advance = () => {};
+
+  const withTabSelected = <Return>(
+    index: number,
+    fn: () => Return,
+  ): Promise<Awaited<Return>> => {
+    const result = queue.then(async () => {
+      await selectTab(index);
+      return fn();
+    }) as Promise<Awaited<Return>>;
+    queue = result.then(advance, advance);
+    return result;
+  };
+
+  return {
+    selectTab,
+    withTabSelected,
+    newTab: (url: string = "about:blank") =>
+      playwright.newTab(container, url, session),
+    evaluateOnTab: <Return>(index: number, fn: () => Return) =>
+      withTabSelected(index, () =>
+        playwright.evaluate<Return>(container, fn, session),
+      ),
+    consoleForTab: (index: number) =>
+      withTabSelected(index, () => playwright.console(container, session)),
+  };
+};
 
 export const readFile = (name: string, path: string) =>
   container.exec(name, ["cat", path]).complete({ out: "buffer" });
