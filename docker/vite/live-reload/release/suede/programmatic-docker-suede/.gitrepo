@@ -1,0 +1,12 @@
+; DO NOT EDIT (unless you know what you are doing)
+;
+; This subdirectory is a git "subrepo", and this file is maintained by the
+; git-subrepo command. See https://github.com/ingydotnet/git-subrepo#readme
+;
+[subrepo]
+	remote = https://github.com/pmalacho-mit/programmatic-docker-suede
+	branch = release
+	commit = bfedfdac32f1d944b0fdbf79854c75f6e1474994
+	parent = e11698e8769197cb4031318b77e2d0acef0f9b3e
+	method = merge
+	cmdver = 0.4.9
