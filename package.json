@@ -13,9 +13,11 @@
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run",
 		"doc": "npx @p-buddy/parkdown",
-		"undoc": "npx @p-buddy/parkdown --depopulate --no-inclusions"
+		"undoc": "npx @p-buddy/parkdown --depopulate --no-inclusions",
+		"playwright-cli": "playwright-cli"
 	},
 	"devDependencies": {
+		"@playwright/cli": "^0.1.9",
 		"@sveltejs/adapter-auto": "^7.0.0",
 		"@sveltejs/kit": "^2.47.1",
 		"@sveltejs/vite-plugin-svelte": "^6.2.1",
