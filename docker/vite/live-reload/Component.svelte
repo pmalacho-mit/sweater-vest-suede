@@ -2,8 +2,6 @@
   export type Props = {
     count?: number;
   };
-
-  let y = "<EDIT TARGET>";
 </script>
 
 <script lang="ts">

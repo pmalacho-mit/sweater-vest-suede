@@ -8,7 +8,7 @@ import {
   type Browser,
   buildAndRun,
   playwright,
-  Session,
+  sessionWithTabs,
 } from "../../release/suede/browser-control-container-suede";
 import { basename, relative, resolve } from "node:path";
 
@@ -18,17 +18,48 @@ const dockerfile = relative(root, resolve(dirname, "Dockerfile"));
 
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export const poll = async (
+/**
+ * Polls an async predicate until it returns true or the provided timeout elapses.
+ *
+ * @throws If the predicate does not return true before the timeout, an error is thrown.
+ * @param fn The asynchronous predicate function to evaluate.
+ * @param timeoutMs The maximum time to wait for the predicate to return true, in milliseconds.
+ *
+ * @overload
+ * - Polling interval uses the implementation default of 1,000ms.
+ */
+export async function poll(
   fn: () => Promise<boolean>,
-  { timeout = 30_000, interval = 1_000 } = {},
-) => {
+  timeoutMs: number,
+): Promise<void>;
+/**
+ * Polls an async predicate until it returns true or timeout elapses.
+ *
+ * @throws If the predicate does not return true before the timeout, an error is thrown.
+ * @param options.timeout The maximum time to wait for the predicate to return true, in milliseconds. Defaults to 30,000ms.
+ * @param options.interval The time to wait between predicate evaluations, in milliseconds. Defaults to 1,000ms.
+ * @overload Allows specifying both timeout and interval via an (optional) options object.
+ */
+export async function poll(
+  fn: () => Promise<boolean>,
+  options?: { timeout?: number; interval?: number },
+): Promise<void>;
+/**
+ * Shared implementation for both overloads.
+ */
+export async function poll(
+  fn: () => Promise<boolean>,
+  options: { timeout?: number; interval?: number } | number = {},
+) {
+  const { timeout = 30_000, interval = 1_000 } =
+    typeof options === "number" ? { timeout: options } : options;
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
     if (await fn()) return;
     await sleep(interval);
   }
   throw new Error(`Poll timed out: ${fn.toString()}`);
-};
+}
 
 export const configure = <const T extends string>(
   test: T,
@@ -130,6 +161,8 @@ const checkConnectionTemplate = () =>
 const checkConnection = (url: string) =>
   `(${checkConnectionTemplate.toString().replace("<URL>", url)})()`;
 
+const src = <T extends string>(file: T) => `/app/src/${file}` as const;
+
 export const browserCanReachVite = async (
   { browser, vite }: Config,
   timeout = 30_000,
@@ -151,11 +184,8 @@ export const browserCanReachVite = async (
 
 export const sessionSuite = (import_meta_dirname: string) => {
   const config = configure(basename(import_meta_dirname));
-  const session = new Session(
-    config.browser.container,
-    config.browser.session,
-    config.browser.kind,
-  );
+
+  let session: Awaited<ReturnType<typeof sessionWithTabs>>;
 
   beforeAll(async () => {
     await tryCreateNetwork(config);
@@ -166,7 +196,11 @@ export const sessionSuite = (import_meta_dirname: string) => {
     if (vite.status === "rejected")
       throw new Error(`Failed to prepare Vite container: ${vite.reason}`);
     await browserCanReachVite(config);
-    await session.open();
+    session = await sessionWithTabs(
+      config.browser.container,
+      config.browser.session,
+      config.browser.kind,
+    );
   }, 300_000);
 
   afterAll(async () =>
@@ -182,6 +216,10 @@ export const sessionSuite = (import_meta_dirname: string) => {
 
   return {
     config,
+    edit: (file: string, edit: string) =>
+      container
+        .exec(config.vite.container, ["sed", "-i", edit, src(file)])
+        .complete(),
     open: async () => {
       const tabIndex = await session.newTab(config.vite.url);
       return {
@@ -197,3 +235,8 @@ export const sessionSuite = (import_meta_dirname: string) => {
     },
   };
 };
+
+export const catcher =
+  <T extends Promise<boolean>>(fn: () => T) =>
+  () =>
+    fn().catch(() => false);

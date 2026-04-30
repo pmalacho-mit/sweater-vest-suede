@@ -11,8 +11,6 @@
       this.count = initial;
     }
   }
-
-  let y = "<EDIT TARGET>";
 </script>
 
 <span id="loaded-at">{Date.now()}</span>
