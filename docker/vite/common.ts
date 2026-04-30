@@ -16,6 +16,7 @@ const dirname = resolve(import.meta.dirname);
 const root = resolve(dirname, "..", "..");
 const dockerfile = relative(root, resolve(dirname, "Dockerfile"));
 
+/** Returns a promise that resolves after `ms` milliseconds. */
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
@@ -61,6 +62,21 @@ export async function poll(
   throw new Error(`Poll timed out: ${fn.toString()}`);
 }
 
+/**
+ * Derives consistent container/network name constants from a test-case identifier.
+ *
+ * @param test Directory name of the test case (e.g. `"live-reload"`).
+ * @param browser Playwright browser to target. Defaults to `"chromium"`.
+ * @returns
+ * - `name` — Shared base name used to scope all resources (e.g. `"vite-live-reload"`).
+ * - `network` — Docker network name that connects the Vite and browser containers.
+ * - `vite.container` — Name of the Vite dev-server container.
+ * - `vite.url` — URL the browser uses to reach the Vite server.
+ * - `vite.tag` — Docker image tag for the built Vite image.
+ * - `browser.container` — Name of the Playwright browser-control container.
+ * - `browser.session` — Session name used by the Playwright CLI.
+ * - `browser.kind` — The Playwright browser type.
+ */
 export const configure = <const T extends string>(
   test: T,
   browser: Browser = "chromium",
@@ -85,23 +101,10 @@ export const configure = <const T extends string>(
 
 type Config = ReturnType<typeof configure>;
 
-export const tryCreateNetwork = async (name: Config["network"] | Config) =>
-  docker([
-    "network",
-    "create",
-    typeof name === "string" ? name : name.network,
-  ]).catch(() => {});
-
-export const tryRemoveNetwork = async (name: Config["network"] | Config) =>
-  docker([
-    "network",
-    "rm",
-    typeof name === "string" ? name : name.network,
-  ]).catch(() => {});
-
-export const tryRemoveContainer = async (name: string) =>
-  container.remove(name).catch(() => {});
-
+/**
+ * Builds the Vite Docker image for the given test case, streaming build output to stdout.
+ * Throws if the build exits with a non-zero status.
+ */
 export const buildViteImage = async ({
   test: TEST_CASE,
   vite: { tag },
@@ -123,6 +126,10 @@ export const buildViteImage = async ({
 };
 
 export const prepare = {
+  /**
+   * Builds the Vite image and starts a fresh container for it.
+   * Any previously running container is removed concurrently with the image build.
+   */
   vite: async (config: Config) => {
     const [vite] = await Promise.allSettled([
       buildViteImage(config),
@@ -137,6 +144,7 @@ export const prepare = {
       removeOnStop: true,
     });
   },
+  /** Builds and starts the browser-control container, then waits until Playwright is ready. */
   browser: async (config: Config) => {
     await buildAndRun(config.browser.kind, {
       container: () => config.browser.container,
@@ -163,6 +171,7 @@ const checkConnection = (url: string) =>
 
 const src = <T extends string>(file: T) => `/app/src/${file}` as const;
 
+/** Polls until the browser container can successfully fetch the Vite dev-server URL. */
 export const browserCanReachVite = async (
   { browser, vite }: Config,
   timeout = 30_000,
@@ -182,13 +191,18 @@ export const browserCanReachVite = async (
     { timeout },
   );
 
+/**
+ * Registers `beforeAll`/`afterAll` hooks that build and run the Vite and
+ * browser-control containers for the test case named after `import_meta_dirname`.
+ * Pass `import.meta.dirname` from the test file.
+ */
 export const sessionSuite = (import_meta_dirname: string) => {
   const config = configure(basename(import_meta_dirname));
 
   let session: Awaited<ReturnType<typeof sessionWithTabs>>;
 
   beforeAll(async () => {
-    await tryCreateNetwork(config);
+    await docker.tryCreateNetwork(config.network);
     const [vite] = await Promise.allSettled([
       prepare.vite(config),
       prepare.browser(config),
@@ -208,19 +222,32 @@ export const sessionSuite = (import_meta_dirname: string) => {
       playwright
         .close(config.browser.container, config.browser.session)
         .catch(() => {}),
-      tryRemoveContainer(config.vite.container),
-      tryRemoveContainer(config.browser.container),
-      tryRemoveNetwork(config),
+      container.tryRemove(config.browser.container),
+      docker.tryRemoveNetwork(config.network),
     ]),
   );
 
   return {
+    /**
+     * Typed name constants for the test case's Docker network and containers.
+     */
     config,
+    /**
+     * Runs `sed -i <expr>` on `/app/src/<file>` inside the Vite container
+     * @param file Filename relative to the Vite container's `/app/src` directory (e.g. `"Component.svelte"`).
+     * @param edit The `sed` expression to apply.
+     * @returns A promise that resolves when the command completes.
+     */
     edit: (file: string, edit: string) =>
       container
         .exec(config.vite.container, ["sed", "-i", edit, src(file)])
         .complete(),
-    /** Inserts `content` as the first line inside a `<script lang="ts" module>` block. */
+    /**
+     * Inserts `content` as the first line inside a `<script lang="ts" module>` block.
+     * @param file Filename relative to the Vite container's `/app/src` directory (e.g. `"Component.svelte"`).
+     * @param content The content to insert.
+     * @returns A promise that resolves when the command completes.
+     */
     prependToSvelteModule: (file: string, content: string) =>
       container
         .exec(config.vite.container, [
@@ -230,14 +257,20 @@ export const sessionSuite = (import_meta_dirname: string) => {
           src(file),
         ])
         .complete(),
+    /**
+     * Opens a new browser tab at the Vite URL and returns:
+     */
     open: async () => {
       const tabIndex = await session.newTab(config.vite.url);
       return {
+        /** Numeric identifier for the tab within the Playwright session. */
         tabIndex,
+        /** Asserts the tab's console reports zero errors. */
         expectNoConsoleErrors: () =>
           session
             .consoleForTab(tabIndex)
             .then((out) => expect(out).toContain("Errors: 0")),
+        /** Serializes `fn` and evaluates it inside the tab, returning the result. */
         evaluate: session.evaluateOnTab.bind(session, tabIndex) as <Return>(
           fn: () => Return,
         ) => Promise<Awaited<Return>>,
@@ -246,6 +279,7 @@ export const sessionSuite = (import_meta_dirname: string) => {
   };
 };
 
+/** Wraps an async predicate so that any thrown error is swallowed and converted to `false`. */
 export const catcher =
   <T extends Promise<boolean>>(fn: () => T) =>
   () =>
