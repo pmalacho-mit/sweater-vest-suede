@@ -7,6 +7,7 @@
     reset,
   } from "./Runner.svelte";
   import { onAbort, TestAborted } from "./utils/abort";
+  import "./globals.d.ts";
 
   const orientations = {
     horizontal: "HORIZONTAL",
@@ -69,8 +70,9 @@
     position: position(index, props, orientation),
   });
 
-  let version = 0;
-  export const next = () => version++;
+  window["__SWEATER_VEST__"] ??= {} as any;
+  window["__SWEATER_VEST__"].version = 0;
+  export const next = () => window["__SWEATER_VEST__"].version++;
 
   const aborts = new Set<() => void>();
 

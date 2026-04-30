@@ -4,6 +4,7 @@
   import Container, { mechanism, next, setTotal } from "./Container.svelte";
   import type { Snippet } from "svelte";
   import { createContainerMap } from "./utils/container-map";
+  import "./globals.d.ts";
 
   type ConfigProps = ContainerProps & {
     target?: HTMLElement;
@@ -39,6 +40,9 @@
     subtract: <T extends Pocket>(props: Props<T>) =>
       counts[counts.key(props)]--,
   };
+
+  window["__SWEATER_VEST__"] ??= {} as any;
+  window["__SWEATER_VEST__"].counts = counts;
 
   /* TODO: Determine if this is only true when test is modified and live-reload triggers */
   const testHasChanged = <T extends Pocket>(props: Props<T>, index: number) =>

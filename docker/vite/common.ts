@@ -8,6 +8,7 @@ import {
   type Browser,
   buildAndRun,
   playwright,
+  Session,
 } from "../../release/suede/browser-control-container-suede";
 import { basename, relative, resolve } from "node:path";
 
@@ -148,41 +149,13 @@ export const browserCanReachVite = async (
     { timeout },
   );
 
-export const openSession = async (config: Config) => {
-  const result = await playwright.open(
-    config.browser.container,
-    config.browser.kind,
-    config.browser.session,
-    config.vite.url,
-  );
-  if (result.exit !== 0)
-    throw new Error(
-      `Failed to open Playwright session: ${result.out}\n${result.err}${"error" in result ? `\n${result.error}` : ""}`,
-    );
-};
-
-export const expectNoConsoleErrors = async ({
-  browser: { container, session },
-}: Config) =>
-  playwright
-    .exec(container, ["console"], { session })
-    .complete()
-    .then(({ out }) => expect(out).toContain("Errors: 0"));
-
-export const evaluate = async <Return>(
-  { browser: { container, session } }: Config,
-  fn: () => Return,
-) => {
-  const value = await playwright.json<{ result: string }>(
-    container,
-    ["eval", fn.toString()],
-    { session },
-  );
-  if (value?.result) return JSON.parse(value.result) as Return;
-};
-
-export const singleSessionSuite = (import_meta_dirname: string) => {
+export const sessionSuite = (import_meta_dirname: string) => {
   const config = configure(basename(import_meta_dirname));
+  const session = new Session(
+    config.browser.container,
+    config.browser.session,
+    config.browser.kind,
+  );
 
   beforeAll(async () => {
     await tryCreateNetwork(config);
@@ -193,7 +166,7 @@ export const singleSessionSuite = (import_meta_dirname: string) => {
     if (vite.status === "rejected")
       throw new Error(`Failed to prepare Vite container: ${vite.reason}`);
     await browserCanReachVite(config);
-    await openSession(config);
+    await session.open();
   }, 300_000);
 
   afterAll(async () =>
@@ -209,10 +182,18 @@ export const singleSessionSuite = (import_meta_dirname: string) => {
 
   return {
     config,
-    open: () => {},
-    evaluate: evaluate.bind(null, config) as <Return>(
-      fn: () => Return,
-    ) => Promise<Return>,
-    expectNoConsoleErrors: expectNoConsoleErrors.bind(null, config),
+    open: async () => {
+      const tabIndex = await session.newTab(config.vite.url);
+      return {
+        tabIndex,
+        expectNoConsoleErrors: () =>
+          session
+            .consoleForTab(tabIndex)
+            .then((out) => expect(out).toContain("Errors: 0")),
+        evaluate: session.evaluateOnTab.bind(session, tabIndex) as <Return>(
+          fn: () => Return,
+        ) => Promise<Awaited<Return>>,
+      };
+    },
   };
 };

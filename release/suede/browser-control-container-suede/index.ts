@@ -153,6 +153,7 @@ export const playwright = {
       `Failed to get current tab index from output after creating tab:\n${out}`,
     );
   },
+
   newTab: async (
     container: string,
     url: string = "about:blank",
@@ -161,6 +162,7 @@ export const playwright = {
     playwright
       .run(container, ["tab-new", url], { session, raw: true })
       .then(playwright.parseCurrentTab),
+
   selectTab: async (container: string, index: number, session?: string) => {
     const result = playwright.parseCurrentTab(
       await playwright.run(container, ["tab-select", index.toString()], {
@@ -173,8 +175,12 @@ export const playwright = {
         `Failed to select tab ${index}, current tab is ${result}`,
       );
   },
+
   console: async (container: string, session?: string) =>
-    playwright.run(container, ["console"], { session, raw: true }),
+    playwright
+      .run(container, ["console"], { session, raw: true })
+      .then(({ out }) => out),
+
   evaluate: async <Return>(
     container: string,
     fn: () => Return,
@@ -182,17 +188,33 @@ export const playwright = {
   ) =>
     playwright
       .run(container, ["eval", fn.toString()], { session, raw: true })
-      .then(({ out }) => JSON.parse(out) as Return),
+      .then(({ out }) =>
+        out && out.trim() !== "undefined"
+          ? (JSON.parse(out.trim()) as Return)
+          : undefined,
+      ),
 };
 
 export class Session {
   readonly #container: string;
   readonly #session: string;
+  readonly #browser: Browser;
+
   #queue: Promise<void> = Promise.resolve();
 
-  constructor(container: string, session: string) {
+  constructor(container: string, session: string, browser: Browser) {
     this.#container = container;
     this.#session = session;
+    this.#browser = browser;
+  }
+
+  open(url?: string) {
+    return playwright.open(
+      this.#container,
+      this.#browser,
+      this.#session,
+      url ?? "about:blank",
+    );
   }
 
   newTab(url: string) {
@@ -218,6 +240,12 @@ export class Session {
   evaluateOnTab<Return>(index: number, fn: () => Return) {
     return this.withTabSelected(index, () =>
       playwright.evaluate<Return>(this.#container, fn, this.#session),
+    );
+  }
+
+  consoleForTab(index: number) {
+    return this.withTabSelected(index, () =>
+      playwright.console(this.#container, this.#session),
     );
   }
 

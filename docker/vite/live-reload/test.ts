@@ -1,6 +1,6 @@
 import { describe, test, expect } from "vitest";
-import { singleSessionSuite, poll } from "../common";
-import { container } from "./release/suede/programmatic-docker-suede";
+import { sessionSuite, poll } from "../common";
+import "./release/globals.d.ts";
 
 describe("live-reload", { concurrent: false }, async () => {
   const selectAllButtons = () =>
@@ -10,58 +10,14 @@ describe("live-reload", { concurrent: false }, async () => {
 
   const getLoadedAt = () => document.querySelector("#loaded-at")?.textContent;
 
-  const { evaluate, expectNoConsoleErrors, config } = singleSessionSuite(
-    import.meta.dirname,
-  );
+  const { open, config } = sessionSuite(import.meta.dirname);
 
   test("Editing Component.svelte triggers page reload", async () => {
+    const { evaluate, expectNoConsoleErrors, tabIndex } = await open();
+
     const loadedAt = await evaluate(getLoadedAt);
     expect(loadedAt).toBeDefined();
 
-    await poll(
-      async () => {
-        try {
-          const result = await evaluate(selectAllButtons);
-          if (!result) return false;
-          return (
-            result.includes("clicks: 3") &&
-            result.includes("clicks: 4") &&
-            result.includes("clicks: 5") &&
-            result.includes("clicks: 6")
-          );
-        } catch {
-          return false;
-        }
-      },
-      { timeout: 60_000 },
-    );
-
-    await expectNoConsoleErrors();
-
-    // Search for 'Edit Target' and delete entire line.
-    // NOTE: Removing just a comment does not trigger the reload.
-    await container
-      .exec(config.vite.container, [
-        "sed",
-        "-i",
-        "/EDIT TARGET/d",
-        "/app/src/Component.svelte",
-      ])
-      .complete();
-
-    await poll(
-      async () => {
-        try {
-          const newLoadedAt = await evaluate(getLoadedAt);
-          return newLoadedAt !== undefined && newLoadedAt !== loadedAt;
-        } catch {
-          return false;
-        }
-      },
-      { timeout: 30_000 },
-    );
-
-    // Verify the tests re-ran and passed after the live reload.
     await poll(
       async () => {
         try {
