@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { sessionSuite, poll, catcher } from "../common";
+import { sessionSuite, poll, catcher, sleep } from "../harness";
 import "./release/globals.d.ts";
 
 type Variables = {
@@ -24,6 +24,7 @@ describe(
   async () => {
     const { open, edit, prependToSvelteModule } = sessionSuite(
       import.meta.dirname,
+      "single",
     );
 
     type Case = {
@@ -135,5 +136,7 @@ describe(
         await expect(poll(catcher(expectation), 30_000)).resolves.not.toThrow();
       }, 90_000);
     }
+
+    //await sleep(300_000);
   },
 );

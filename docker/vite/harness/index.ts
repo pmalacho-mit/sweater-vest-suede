@@ -3,18 +3,20 @@ import {
   container,
   docker,
   image,
-} from "../../release/suede/programmatic-docker-suede";
+} from "../../../release/suede/programmatic-docker-suede";
 import {
   type Browser,
   buildAndRun,
   playwright,
   sessionWithTabs,
-} from "../../release/suede/browser-control-container-suede";
+} from "../../../release/suede/browser-control-container-suede";
 import { basename, relative, resolve } from "node:path";
 
-const dirname = resolve(import.meta.dirname);
-const root = resolve(dirname, "..", "..");
-const dockerfile = relative(root, resolve(dirname, "Dockerfile"));
+const harness = resolve(import.meta.dirname);
+const root = resolve(harness, "..", "..", "..");
+const dockerfile = relative(root, resolve(harness, "Dockerfile"));
+
+type Harness = "single" | "gallery";
 
 /** Returns a promise that resolves after `ms` milliseconds. */
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -79,11 +81,13 @@ export async function poll(
  */
 export const configure = <const T extends string>(
   test: T,
+  harness: Harness,
   browser: Browser = "chromium",
 ) => {
   const name = `vite-${test}` as const;
   return {
     test,
+    harness,
     name,
     network: `${name}-network` as const,
     vite: {
@@ -108,12 +112,15 @@ type Config = ReturnType<typeof configure>;
 export const buildViteImage = async ({
   test: TEST_CASE,
   vite: { tag },
-}: Pick<Config, "name" | "test"> & {
+  harness: HARNESS,
+}: Pick<Config, "name" | "test" | "harness"> & {
   vite: Pick<Config["vite"], "tag">;
 }) => {
   const build = image.build(tag, root, {
     dockerfile,
-    buildargs: { TEST_CASE },
+    version: "2", // ensure BuildKit features are available (e.g. COPY --exclude)
+    include: ["docker/vite", "release"], // restrict build context for faster builds
+    buildargs: { TEST_CASE, HARNESS },
   });
   for await (const chunk of build.chunks()) process.stdout.write(chunk.data);
   const result = await build.complete();
@@ -196,8 +203,8 @@ export const browserCanReachVite = async (
  * browser-control containers for the test case named after `import_meta_dirname`.
  * Pass `import.meta.dirname` from the test file.
  */
-export const sessionSuite = (import_meta_dirname: string) => {
-  const config = configure(basename(import_meta_dirname));
+export const sessionSuite = (import_meta_dirname: string, harness: Harness) => {
+  const config = configure(basename(import_meta_dirname), harness);
 
   let session: Awaited<ReturnType<typeof sessionWithTabs>>;
 
@@ -223,6 +230,7 @@ export const sessionSuite = (import_meta_dirname: string) => {
         .close(config.browser.container, config.browser.session)
         .catch(() => {}),
       container.tryRemove(config.browser.container),
+      container.tryRemove(config.vite.container),
       docker.tryRemoveNetwork(config.network),
     ]),
   );
