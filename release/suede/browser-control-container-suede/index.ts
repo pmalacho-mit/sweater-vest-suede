@@ -1,9 +1,7 @@
 import { resolve } from "node:path";
 import { container, image } from "../programmatic-docker-suede";
 import { devcontainerNetwork } from "../programmatic-docker-suede/devcontainer.js";
-import CommandStream, {
-  type CompletedResult,
-} from "../programmatic-docker-suede/CommandStream.js";
+import CommandStream from "../programmatic-docker-suede/CommandStream.js";
 import defaults from "./defaults.js";
 
 /**
