@@ -40,8 +40,9 @@ export const buildAndRun = async (BROWSER: Browser, details?: Options) => {
   const name = (details?.container ?? defaults.container)(BROWSER);
   const tag = (details?.image ?? defaults.image)(BROWSER);
 
+  if (details?.log)
+    console.log(`(Try) Removing existing container for ${BROWSER}`);
   await container.tryRemove(name);
-  if (details?.log) console.log(`Tried to remove container for ${BROWSER}`);
 
   if (details?.log) console.log(`Building image ${tag} from ${context}...`);
 
@@ -186,13 +187,6 @@ export const playwright = {
       ),
 };
 
-/**
- *
- * @param container
- * @param session
- * @param browser
- * @returns
- */
 export const sessionWithTabs = async (
   container: string,
   session: string,
