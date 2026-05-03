@@ -1,9 +1,7 @@
 import { resolve } from "node:path";
 import { container, image } from "../programmatic-docker-suede";
 import { devcontainerNetwork } from "../programmatic-docker-suede/devcontainer.js";
-import CommandStream, {
-  type CompletedResult,
-} from "../programmatic-docker-suede/CommandStream.js";
+import CommandStream from "../programmatic-docker-suede/CommandStream.js";
 import defaults from "./defaults.js";
 
 /**
@@ -29,16 +27,6 @@ type Options = Partial<
   }
 >;
 
-export const tryRemove = async (
-  browser: Browser,
-  details?: Pick<Options, "container" | "log">,
-) => {
-  try {
-    await container.remove((details?.container ?? defaults.container)(browser));
-    if (details?.log) console.log(`Removed existing container for ${browser}`);
-  } catch {}
-};
-
 /**
  *
  * @param BROWSER
@@ -50,7 +38,8 @@ export const buildAndRun = async (BROWSER: Browser, details?: Options) => {
   const name = (details?.container ?? defaults.container)(BROWSER);
   const tag = (details?.image ?? defaults.image)(BROWSER);
 
-  await tryRemove(BROWSER, details);
+  await container.tryRemove(name);
+  if (details?.log) console.log(`Tried to remove container for ${BROWSER}`);
 
   if (details?.log) console.log(`Building image ${tag} from ${context}...`);
 
@@ -195,6 +184,13 @@ export const playwright = {
       ),
 };
 
+/**
+ *
+ * @param container
+ * @param session
+ * @param browser
+ * @returns
+ */
 export const sessionWithTabs = async (
   container: string,
   session: string,
@@ -213,10 +209,7 @@ export const sessionWithTabs = async (
    */
   const advance = () => {};
 
-  const withTabSelected = <Return>(
-    index: number,
-    fn: () => Return,
-  ): Promise<Awaited<Return>> => {
+  const withTabSelected = <Return>(index: number, fn: () => Return) => {
     const result = queue.then(async () => {
       await selectTab(index);
       return fn();
