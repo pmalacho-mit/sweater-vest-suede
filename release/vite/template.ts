@@ -1,6 +1,6 @@
 import { mount } from "svelte";
 import "./app.css";
-import Gallery from "<path>/sweater-vest-suede/vite/Gallery.svelte";
+import Gallery from "<path>/sweater-vest-suede/vite/Closet.svelte";
 
 const app = mount(Gallery, {
   target: document.getElementById("app")!,

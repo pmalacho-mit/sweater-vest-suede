@@ -1,20 +1,27 @@
 import { describe, test, expect } from "vitest";
 import { sessionSuite } from "../.harness/index.ts";
 import {
+  startDiscoveryServer,
   startEventServer,
   type TestResult,
-} from "../../../release/utils/report-events.ts";
-import { renderReport } from "../../../release/utils/report-html.ts";
-import { printReport } from "../../../release/utils/report-print.ts";
+} from "../../../release/report/events.ts";
+import { renderReport } from "../../../release/report/html.ts";
+import { printReport } from "../../../release/report/print.ts";
 
 describe("report", { concurrent: true }, () => {
   const { open } = sessionSuite(import.meta.dirname, "single");
 
-  // Opens the fixture page with a fresh event server, awaits all 3 results.
-  const run = async () => {
+  // Opens the fixture page with a fresh event server, awaits all results.
+  // Closes the server if the test throws before server.done resolves.
+  const run = async (queryParams?: Record<string, string>) => {
     const server = await startEventServer();
-    await open({ reportServer: server.url });
-    return { results: await server.done };
+    try {
+      await open({ reportServer: server.url, ...queryParams });
+      return { results: await server.done };
+    } catch (e) {
+      server.close();
+      throw e;
+    }
   };
 
   // --- browser integration tests ---
@@ -67,14 +74,69 @@ describe("report", { concurrent: true }, () => {
     expect(capturing!.notes).toEqual(["before screenshot", "after screenshot"]);
   }, 90_000);
 
+  test("testFilter skips non-matching tests and records them as skipped", async () => {
+    // Only "passes" matches — "fails" and "captures" should be skipped.
+    const { results } = await run({ testFilter: "passes" });
+
+    expect(results).toHaveLength(3);
+
+    const passing = results.find((r) => r.name === "passes");
+    expect(passing!.status).toBe("passed");
+
+    const skipped = results.filter((r) => r.status === "skipped");
+    expect(skipped).toHaveLength(2);
+    expect(skipped.every((r) => r.durationMs === 0)).toBe(true);
+  }, 90_000);
+
   test("no console errors despite intentional test failure", async () => {
     const server = await startEventServer();
-    const tab = await open({ reportServer: server.url });
-    await server.done;
-    await tab.expectNoConsoleErrors();
+    try {
+      const tab = await open({ reportServer: server.url });
+      await server.done;
+      await tab.expectNoConsoleErrors();
+    } catch (e) {
+      server.close();
+      throw e;
+    }
   }, 90_000);
 
   // --- Node.js-only unit tests (no browser needed) ---
+
+  test("startDiscoveryServer resolves paths from a gallery-ready POST", async () => {
+    const discovery = await startDiscoveryServer(5_000);
+    const port = new URL(discovery.url).port;
+
+    await fetch(`http://localhost:${port}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "gallery-ready", paths: ["/src/A.test.svelte", "/src/B.test.svelte"] }),
+    });
+
+    const paths = await discovery.paths;
+    expect(paths).toEqual(["/src/A.test.svelte", "/src/B.test.svelte"]);
+  });
+
+  test("startDiscoveryServer ignores unknown event types", async () => {
+    const discovery = await startDiscoveryServer(2_000);
+    const port = new URL(discovery.url).port;
+
+    // Send an unknown event — should not resolve paths.
+    await fetch(`http://localhost:${port}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "suite-ready", totalTests: 1 }),
+    });
+
+    // Now send the correct event.
+    await fetch(`http://localhost:${port}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "gallery-ready", paths: ["/src/C.test.svelte"] }),
+    });
+
+    const paths = await discovery.paths;
+    expect(paths).toEqual(["/src/C.test.svelte"]);
+  });
 
   const syntheticResults: TestResult[] = [
     {
@@ -112,32 +174,30 @@ describe("report", { concurrent: true }, () => {
       browsers: [{ kind: "chromium", results: syntheticResults }],
     });
 
-    // Well-formed document
     expect(html).toContain("<!DOCTYPE html>");
     expect(html).toContain("</html>");
-
-    // Summary counts
     expect(html).toContain("2 passed");
     expect(html).toContain("1 failed");
-
-    // Test names
     expect(html).toContain("passes");
     expect(html).toContain("fails");
     expect(html).toContain("captures");
-
-    // Error detail
     expect(html).toContain('Expected "actual" to be "expected"');
-
-    // Inline capture image
     expect(html).toContain("data:image/png;base64,iVBORw0KGgo=");
     expect(html).toContain("<img");
-
-    // Note annotation
     expect(html).toContain("before screenshot");
-
-    // Self-contained — no external resource loading
     expect(html).not.toMatch(/src="https?:/);
     expect(html).not.toMatch(/href="https?:/);
+  });
+
+  test("renderReport with empty results shows no-tests message", () => {
+    const html = renderReport({
+      generatedAt: new Date().toISOString(),
+      galleryUrl: "http://localhost:5173",
+      browsers: [],
+    });
+
+    expect(html).toContain("No tests were run");
+    expect(html).not.toContain("all passed");
   });
 
   test("printReport writes expected summary lines", () => {
@@ -167,5 +227,28 @@ describe("report", { concurrent: true }, () => {
     expect(output).toMatch(/1 failed/);
     expect(output).toMatch(/3 total/);
     expect(output).toContain("./report.html");
+  });
+
+  test("printReport breakdown includes skipped count when present", () => {
+    const withSkipped: TestResult[] = [
+      { name: "a", status: "passed", durationMs: 5, captures: [], notes: [] },
+      { name: "b", status: "skipped", durationMs: 0, captures: [], notes: [] },
+    ];
+    const lines: string[] = [];
+    const write = (s: string) => { lines.push(s); return true; };
+
+    printReport(
+      {
+        generatedAt: new Date().toISOString(),
+        galleryUrl: "http://localhost:5173",
+        browsers: [{ kind: "chromium", componentPath: "/src/Foo.test.svelte", results: withSkipped }],
+      },
+      { write },
+    );
+
+    const output = lines.join("");
+    expect(output).toContain("PASS");
+    expect(output).toContain("1 passed");
+    expect(output).toContain("1 skipped");
   });
 });

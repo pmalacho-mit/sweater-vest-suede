@@ -20,12 +20,12 @@ The report script requires Docker — it launches a Playwright browser container
 
 ### 1. Configure `main.ts`
 
-Mount `Gallery.svelte` as the root component, passing an `import.meta.glob` pattern that covers all your test files:
+Mount `Closet.svelte` as the root component, passing an `import.meta.glob` pattern that covers all your test files:
 
 ```ts
 // src/main.ts
 import { mount } from "svelte";
-import Gallery from "<path-to-sweater-vest-suede>/vite/Gallery.svelte";
+import Gallery from "<path-to-sweater-vest-suede>/vite/Closet.svelte";
 
 mount(Gallery, {
   target: document.getElementById("app")!,
@@ -45,7 +45,7 @@ The gallery page serves two purposes: it renders a clickable list of test files 
 {
   "scripts": {
     "dev": "vite",
-    "report": "node --experimental-strip-types ./node_modules/sweater-vest-suede/release/report.ts"
+    "report": "node --experimental-strip-types ./node_modules/sweater-vest-suede/release/report/index.ts"
   }
 }
 ```

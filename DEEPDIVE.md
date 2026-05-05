@@ -453,7 +453,7 @@ The test file is placed at `/app/src/` by the Dockerfile. The Vite config in `si
 
 `docker/vite/.harness/gallery/`
 
-The gallery harness mounts `Gallery.svelte` (from `release/vite/`) which:
+The gallery harness mounts `Closet.svelte` (from `release/vite/`) which:
 
 1. Uses `import.meta.glob("/src/**/*.test.svelte")` (note the required leading `/`) to discover all test files.
 2. Renders a button for each discovered file.

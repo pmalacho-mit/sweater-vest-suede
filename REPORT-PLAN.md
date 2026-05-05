@@ -5,7 +5,7 @@
 The reporting feature lets consumers generate full HTML reports of their test suites. The user starts their own dev server (`npm run dev`), then invokes a report script that:
 
 1. Starts a short-lived discovery server; opens the gallery URL with `?reportServer=<url>` appended
-2. `Gallery.svelte` POSTs all known component paths to the discovery server on mount
+2. `Closet.svelte` POSTs all known component paths to the discovery server on mount
 3. Starts one or more browser containers on the devcontainer Docker network
 4. Opens one tab per component (filtered by any CLI pattern), each with its own event server URL appended
 5. `Runner.svelte` POSTs a JSON event per test completion; `Sweater.svelte` POSTs a `suite-ready` count
@@ -23,7 +23,7 @@ This is purely additive. If the `reportServer` query param is absent, `Runner.sv
 │                                                                             │
 │  User's dev server (:5173)                                                  │
 │  ┌─────────────────────────┐                                                │
-│  │ Gallery.svelte          │  Phase 1: discovery                            │
+│  │ Closet.svelte          │  Phase 1: discovery                            │
 │  │ (has glob of all paths) │  discovery server (:aaaaa)                     │
 │  └─────────────────────────┘        ▲                                      │
 │                                     │ POST gallery-ready { paths }          │
@@ -37,7 +37,7 @@ This is purely additive. If the `reportServer` query param is absent, `Runner.sv
 ┌─ browser container ─────────────────────────────────────────────────────────┐
 │                                                                             │
 │  tab 0: galleryUrl?reportServer=:aaaaa                                      │
-│    Gallery.svelte onMount → POST gallery-ready { paths: [...] }             │
+│    Closet.svelte onMount → POST gallery-ready { paths: [...] }             │
 │                                                                             │
 │  report script receives paths, applies componentPattern filter              │
 │                                                                             │
@@ -53,7 +53,7 @@ await Promise.all([serverA.done, serverB.done, …])
 
 Results flow one way: browser → HTTP servers → stdout + HTML file. The browser never accumulates state. `window.__SWEATER_VEST__` is not touched by the reporting feature.
 
-Gallery.svelte is the authoritative source of component paths — it holds the `import.meta.glob` result directly. Having it push those paths to the report server is simpler and more reliable than scraping the DOM from outside.
+Closet.svelte is the authoritative source of component paths — it holds the `import.meta.glob` result directly. Having it push those paths to the report server is simpler and more reliable than scraping the DOM from outside.
 
 ---
 
@@ -62,7 +62,7 @@ Gallery.svelte is the authoritative source of component paths — it holds the `
 Four event types flow from the browser to the report servers, all plain JSON POSTs. The first is handled by the discovery server; the remaining three by the per-component event servers.
 
 ```ts
-// Sent by Gallery.svelte on mount when reportServer is in the URL.
+// Sent by Closet.svelte on mount when reportServer is in the URL.
 // Provides the complete unfiltered list of component paths from import.meta.glob.
 // The report script uses this to decide which tabs to open.
 type GalleryReadyEvent = {
@@ -111,9 +111,9 @@ CORS: the server responds with `Access-Control-Allow-Origin: *` and handles `OPT
 
 ---
 
-## Change to `release/vite/Gallery.svelte`
+## Change to `release/vite/Closet.svelte`
 
-Gallery.svelte already holds `Object.keys(glob)` — every component path available on this page. When the `reportServer` query param is present, it should POST those paths to the report server immediately on mount, before the user (or automation) has clicked anything.
+Closet.svelte already holds `Object.keys(glob)` — every component path available on this page. When the `reportServer` query param is present, it should POST those paths to the report server immediately on mount, before the user (or automation) has clicked anything.
 
 Add an `onMount` block to the instance `<script>`:
 
@@ -138,7 +138,7 @@ The existing instance `<script lang="ts">` block already has `import type { Comp
 </script>
 ```
 
-This is the complete change to `Gallery.svelte`: `onMount` added to the existing import, 8-line call appended. No behaviour change for non-reporting use. The report server receives the full, unfiltered path list; filtering is applied in the report script after the paths arrive.
+This is the complete change to `Closet.svelte`: `onMount` added to the existing import, 8-line call appended. No behaviour change for non-reporting use. The report server receives the full, unfiltered path list; filtering is applied in the report script after the paths arrive.
 
 ---
 
@@ -410,7 +410,7 @@ export type TestResult = {
 
 /**
  * Starts a short-lived HTTP server that waits for a single `gallery-ready` event.
- * Used by generateReport to receive the component path list from Gallery.svelte.
+ * Used by generateReport to receive the component path list from Closet.svelte.
  *
  * Returns { url, paths }:
  *   url   — pass as ?reportServer=<url> when opening the gallery tab
@@ -502,7 +502,7 @@ Orchestrates the full flow. Exports `generateReport` and, when run directly as a
 
 ```ts
 export type ReportOptions = {
-  /** URL where Gallery.svelte is rendered. Default: http://<devcontainerIp>:5173 */
+  /** URL where Closet.svelte is rendered. Default: http://<devcontainerIp>:5173 */
   galleryUrl?: string;
   browsers?: Browser[];         // default: ["chromium"]
   outputPath?: string;          // default: ./sweater-vest-report.html
@@ -541,20 +541,20 @@ The CLI entry point guard uses `fileURLToPath(import.meta.url) === process.argv[
 
 3. **Open playwright sessions** via `sessionWithTabs` for each browser.
 
-4. **For each browser, receive component paths from Gallery.svelte:**
+4. **For each browser, receive component paths from Closet.svelte:**
    ```ts
    const discovery = await startDiscoveryServer();
    const discoveryTabUrl = new URL(options.galleryUrl!);
    discoveryTabUrl.searchParams.set("reportServer", discovery.url);
    await session.newTab(discoveryTabUrl.toString());
-   // Gallery.svelte onMount fires → POSTs gallery-ready { paths }
+   // Closet.svelte onMount fires → POSTs gallery-ready { paths }
    const allPaths = await discovery.paths;
 
    const paths = componentPattern
      ? allPaths.filter((p) => componentPattern.test(p))
      : allPaths;
    ```
-   No DOM scraping, no polling for buttons — Gallery.svelte pushes the paths.
+   No DOM scraping, no polling for buttons — Closet.svelte pushes the paths.
 
 5. **Open all filtered component tabs in parallel**, one event server per component:
    ```ts
@@ -573,7 +573,7 @@ The CLI entry point guard uses `fileURLToPath(import.meta.url) === process.argv[
    ```
    All component tabs run simultaneously. `server.done` resolves when `suite-ready` plus all `test-complete`/`test-skipped` events for that component have been received.
 
-   Note: when a component tab opens with `?component=<path>`, Gallery.svelte also fires its `onMount` again and would POST another `gallery-ready` to the `reportServer` URL. Since the component tabs use per-component servers (not the discovery server), this event arrives at an active event server which simply ignores unknown event types — no interference.
+   Note: when a component tab opens with `?component=<path>`, Closet.svelte also fires its `onMount` again and would POST another `gallery-ready` to the `reportServer` URL. Since the component tabs use per-component servers (not the discovery server), this event arrives at an active event server which simply ignores unknown event types — no interference.
 
 6. **Call `printReport`** to write the stdout summary (including skipped count if any).
 
@@ -862,7 +862,7 @@ test("printReport writes expected summary to stdout", () => {
 | `harness.capture("jpeg")` and `"svg"` | Same `pendingCaptures` path as `"png"` — one type is sufficient. |
 | Multi-browser runs | The orchestration layer is tested manually or in a future suite; per-browser data collection uses the same `startEventServer` path. |
 | SvelteKit harness | Out of scope for v1; browser-side changes are harness-agnostic. |
-| `Gallery.svelte` → `startDiscoveryServer` integration | `startDiscoveryServer` is unit-tested in Step 1 (synthetic POST), and Gallery.svelte's `onMount` fetch is verified against the existing gallery test. But the two are never exercised together in a browser in this suite — that path is only covered by running `generateReport` end-to-end. |
+| `Closet.svelte` → `startDiscoveryServer` integration | `startDiscoveryServer` is unit-tested in Step 1 (synthetic POST), and Closet.svelte's `onMount` fetch is verified against the existing gallery test. But the two are never exercised together in a browser in this suite — that path is only covered by running `generateReport` end-to-end. |
 | Server timeout / hung page | Covered by Vitest's per-test timeout; `startEventServer` rejects after its own timeout as a secondary guard. |
 
 ---
@@ -873,7 +873,7 @@ test("printReport writes expected summary to stdout", () => {
 
 Implement `startDiscoveryServer` and `startEventServer`. Unit test each independently: POST a synthetic `gallery-ready` event and assert `paths` resolves; POST `suite-ready` + `test-complete` events and assert `done` resolves with the expected results. No Docker needed.
 
-### Step 2 — `release/vite/Gallery.svelte` — add `onMount` POST
+### Step 2 — `release/vite/Closet.svelte` — add `onMount` POST
 
 Add the 7-line `onMount` block. Verify the existing gallery test still passes (button click behaviour is unchanged; the new `fetch` is a no-op when `reportServer` is absent).
 

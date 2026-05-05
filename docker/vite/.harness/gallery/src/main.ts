@@ -1,5 +1,5 @@
 import { mount } from "svelte";
-import Gallery from "./release/vite/Gallery.svelte";
+import Gallery from "./release/vite/Closet.svelte";
 
 const app = mount(Gallery, {
   target: document.getElementById("app")!,
