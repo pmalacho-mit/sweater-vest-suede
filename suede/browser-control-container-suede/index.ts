@@ -197,7 +197,10 @@ export const sessionWithTabs = async (
   const selectTab = (index: number) =>
     playwright.selectTab(container, index, session);
 
-  let queue = Promise.resolve();
+  const queue = {
+    new: Promise.resolve(),
+    select: Promise.resolve(),
+  };
 
   /**
    * No-op used to advance the tail of a promise chain,
@@ -206,19 +209,24 @@ export const sessionWithTabs = async (
   const advance = () => {};
 
   const withTabSelected = <Return>(index: number, fn: () => Return) => {
-    const result = queue.then(async () => {
+    const result = queue.select.then(async () => {
       await selectTab(index);
       return fn();
     }) as Promise<Awaited<Return>>;
-    queue = result.then(advance, advance);
+    queue.select = result.then(advance, advance);
     return result;
   };
 
   return {
     selectTab,
     withTabSelected,
-    newTab: (url: string = "about:blank") =>
-      playwright.newTab(container, url, session),
+    newTab: (url: string = "about:blank") => {
+      const result = queue.new.then(() =>
+        playwright.newTab(container, url, session),
+      );
+      queue.new = result.then(advance, advance);
+      return result;
+    },
     evaluateOnTab: <Return>(index: number, fn: () => Return) =>
       withTabSelected(index, () =>
         playwright.evaluate<Return>(container, fn, session),
