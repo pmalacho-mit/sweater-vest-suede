@@ -100,12 +100,17 @@
     setTotal(totalTests);
     containers.reset();
     next();
-    const reportServerUrl = location().searchParams.get("reportServer");
+    const sweaterParams = location().searchParams;
+    const reportServerUrl = sweaterParams.get("reportServer");
     if (reportServerUrl)
       fetch(reportServerUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "suite-ready", totalTests }),
+        body: JSON.stringify({
+          type: "suite-ready",
+          totalTests,
+          component: sweaterParams.get("component") ?? undefined,
+        }),
       }).catch(() => {});
   });
 </script>

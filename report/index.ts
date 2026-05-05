@@ -11,7 +11,7 @@ import {
   sessionWithTabs,
   type Browser,
 } from "../suede/browser-control-container-suede/index.js";
-import { startDiscoveryServer, startEventServer } from "./events.ts";
+import { startReportServer } from "./events.ts";
 import { renderReport, type ReportInput } from "./html.ts";
 import { printReport } from "./print.ts";
 
@@ -41,85 +41,128 @@ export type ReportSummary = {
 
 const containerName = (browser: Browser) => `sweater-vest-report-${browser}`;
 
-export const generateReport = async (options: ReportOptions = {}): Promise<ReportSummary> => {
+export const generateReport = async (
+  options: ReportOptions = {},
+): Promise<ReportSummary> => {
   const galleryUrl = options.galleryUrl ?? `http://${getDevcontainerIp()}:5173`;
   const browsers: Browser[] = options.browsers ?? ["chromium"];
   const outputPath = options.outputPath ?? "./sweater-vest-report.html";
   const { componentPattern, testPattern } = options;
 
-  // Start all browser containers in parallel before opening any tabs.
-  const network = await devcontainerNetwork();
-  await Promise.all(
-    browsers.map(async (browser) => {
-      await buildAndRun(browser, {
-        container: () => containerName(browser),
-        network,
-        log: true,
-      });
-      await playwright.ready(containerName(browser));
-    }),
-  );
-
-  const reportInput: ReportInput = {
-    generatedAt: new Date().toISOString(),
-    galleryUrl,
-    browsers: [],
-  };
+  const startedBrowsers = new Set<Browser>();
+  const sessions = new Map<
+    Browser,
+    Awaited<ReturnType<typeof sessionWithTabs>>
+  >();
+  let server: Awaited<ReturnType<typeof startReportServer>> | undefined;
 
   try {
-    for (const browser of browsers) {
-      const session = await sessionWithTabs(
-        containerName(browser),
-        `report-${browser}`,
-        browser,
-      );
+    // Start all browser containers in parallel.
+    const network = await devcontainerNetwork();
+    await Promise.all(
+      browsers.map(async (browser) => {
+        await buildAndRun(browser, {
+          container: () => containerName(browser),
+          network,
+          log: true,
+        });
+        startedBrowsers.add(browser);
+        await playwright.ready(containerName(browser));
+      }),
+    );
 
-      // Phase 1: discover component paths via Closet.svelte.
-      const discovery = await startDiscoveryServer();
-      const discoveryTabUrl = new URL(galleryUrl);
-      discoveryTabUrl.searchParams.set("reportServer", discovery.url);
-      await session.newTab(discoveryTabUrl.toString());
-      const allPaths = await discovery.paths;
+    // Open playwright sessions for all browsers in parallel.
+    const entries = await Promise.all(
+      browsers.map(
+        async (browser) =>
+          [
+            browser,
+            await sessionWithTabs(
+              containerName(browser),
+              `report-${browser}`,
+              browser,
+            ),
+          ] as const,
+      ),
+    );
+    for (const [browser, session] of entries) sessions.set(browser, session);
 
-      const paths = componentPattern
-        ? allPaths.filter((p) => componentPattern.test(p))
-        : allPaths;
+    // Start the single shared report server.
+    server = await startReportServer();
 
-      // Phase 2: open all component tabs in parallel, one event server each.
-      const componentResults = await Promise.all(
-        paths.map(async (componentPath) => {
-          const server = await startEventServer();
+    // Phase 1: open all gallery tabs simultaneously to discover component paths.
+    // Closet.svelte fires gallery-ready on the /discover route; all browsers see the
+    // same glob so paths.resolve() fires on the first arrival and ignores the rest.
+    await Promise.all(
+      browsers.map((browser) => {
+        const url = new URL(galleryUrl);
+        url.searchParams.set("reportServer", `${server!.url}/discover`);
+        return sessions.get(browser)!.newTab(url.toString());
+      }),
+    );
+
+    const allPaths = await server.paths;
+    const paths = componentPattern
+      ? allPaths.filter((p) => componentPattern.test(p))
+      : allPaths;
+
+    // Phase 2: open every (browser × component) tab simultaneously.
+    // Each tab uses a browser-specific route so the server can key results correctly.
+    const componentResults = await Promise.all(
+      paths.flatMap((componentPath) =>
+        browsers.map(async (browser) => {
           const url = new URL(galleryUrl);
           url.searchParams.set("component", componentPath);
-          url.searchParams.set("reportServer", server.url);
-          if (testPattern) url.searchParams.set("testFilter", testPattern.source);
-          await session.newTab(url.toString());
-          const results = await server.done;
-          return { componentPath, results };
+          url.searchParams.set("reportServer", `${server!.url}/${browser}`);
+          if (testPattern)
+            url.searchParams.set("testFilter", testPattern.source);
+          await sessions.get(browser)!.newTab(url.toString());
+          const results = await server!.waitForComponent(
+            browser,
+            componentPath,
+          );
+          return { browser, componentPath, results };
         }),
-      );
+      ),
+    );
 
-      for (const { componentPath, results } of componentResults)
-        reportInput.browsers.push({ kind: browser, componentPath, results });
+    const reportInput: ReportInput = {
+      generatedAt: new Date().toISOString(),
+      galleryUrl,
+      browsers: componentResults.map(({ browser, componentPath, results }) => ({
+        kind: browser,
+        componentPath,
+        results,
+      })),
+    };
 
-      await playwright.close(containerName(browser), `report-${browser}`).catch(() => {});
-    }
+    printReport(reportInput, { outputPath });
+    await writeFile(outputPath, renderReport(reportInput), "utf-8");
+    console.log(`Report written to ${outputPath}`);
+
+    const allResults = reportInput.browsers.flatMap((b) => b.results);
+    return {
+      totalTests: allResults.length,
+      passed: allResults.filter((r) => r.status === "passed").length,
+      failed: allResults.filter((r) => r.status === "failed").length,
+      skipped: allResults.filter((r) => r.status === "skipped").length,
+      browsers: reportInput.browsers,
+    };
   } finally {
-    await Promise.allSettled(browsers.map((b) => container.tryRemove(containerName(b))));
+    server?.close();
+    await Promise.allSettled(
+      browsers.map((browser) =>
+        playwright
+          .close(containerName(browser), `report-${browser}`)
+          .catch(() => {}),
+      ),
+    );
+    await Promise.allSettled(
+      [...startedBrowsers].map((browser) =>
+        container.tryRemove(containerName(browser)),
+      ),
+    );
   }
-
-  printReport(reportInput, { outputPath });
-  await writeFile(outputPath, renderReport(reportInput), "utf-8");
-  console.log(`Report written to ${outputPath}`);
-
-  const allResults = reportInput.browsers.flatMap((b) => b.results);
-  return {
-    totalTests: allResults.length,
-    passed: allResults.filter((r) => r.status === "passed").length,
-    failed: allResults.filter((r) => r.status === "failed").length,
-    skipped: allResults.filter((r) => r.status === "skipped").length,
-    browsers: reportInput.browsers,
-  };
 };
 
 // CLI entry point — only runs when this file is executed directly.
@@ -138,8 +181,12 @@ if (isMain) {
       ? new RegExp(componentPatternStr, "i")
       : undefined,
     testPattern: testPatternStr ? new RegExp(testPatternStr, "i") : undefined,
-  }).catch((e) => {
-    console.error("Report generation failed:", e);
-    process.exit(1);
-  });
+  })
+    .then((summary) => {
+      if (summary.failed > 0) process.exit(1);
+    })
+    .catch((e) => {
+      console.error("Report generation failed:", e);
+      process.exit(1);
+    });
 }
