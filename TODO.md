@@ -4,6 +4,15 @@ Issues and improvements identified by post-implementation review of the reportin
 
 ---
 
+## Renaming
+
+- `Gallery.svelte` -> `Closet.svelte`
+  - make sure to update all references of Gallery.svelte
+- `release/utils/report-*/` -> `release/report/*`
+- `release/report.ts` -> `release/report/index.ts`
+
+---
+
 ## Bugs
 
 ### `Runner.svelte` — `new URL(location.href)` parsed twice
@@ -12,8 +21,10 @@ Issues and improvements identified by post-implementation review of the reportin
 
 ```ts
 // current
-const reportServerUrl = new URL(location.href).searchParams.get("reportServer") ?? undefined;
-const testFilterSource = new URL(location.href).searchParams.get("testFilter") ?? undefined;
+const reportServerUrl =
+  new URL(location.href).searchParams.get("reportServer") ?? undefined;
+const testFilterSource =
+  new URL(location.href).searchParams.get("testFilter") ?? undefined;
 
 // fix
 const params = new URL(location.href).searchParams;
@@ -30,6 +41,7 @@ const testFilterSource = params.get("testFilter") ?? undefined;
 `docker/vite/report/test.ts` has no test that verifies the `testFilter` query param causes a test to be skipped and a `test-skipped` event to be sent. This is the most non-trivial new code path in `Runner.svelte` and is untested end-to-end.
 
 **Add a test that:**
+
 1. Passes `testFilter=passes` to the page URL (should skip `fails` and `captures`)
 2. Asserts `results.length === 3` (all three still appear, two as `skipped`)
 3. Asserts the two non-matching tests have `status: "skipped"`
@@ -40,6 +52,7 @@ const testFilterSource = params.get("testFilter") ?? undefined;
 The implementation sequence called for a unit test of both `startDiscoveryServer` and `startEventServer` (Step 1). `startEventServer` is exercised by the integration suite, but `startDiscoveryServer` is only tested indirectly through the full `generateReport` flow (which is not automated). A standalone unit test would verify the `gallery-ready` event path without needing a browser.
 
 **Add a test (plain Node.js, no Docker) that:**
+
 1. Calls `startDiscoveryServer()`
 2. Posts `{ type: "gallery-ready", paths: ["/src/A.svelte"] }` to `http://localhost:<port>`
 3. Asserts `await discovery.paths` resolves to `["/src/A.svelte"]`
@@ -102,7 +115,7 @@ The outer `for (const browser of browsers)` loop runs discovery + component tabs
 ### `report-html.ts` — `componentPath` label only strips `/src/` prefix
 
 ```ts
-entry.componentPath.replace(/^\/src\//, "").replace(/\.test\.svelte$/, "")
+entry.componentPath.replace(/^\/src\//, "").replace(/\.test\.svelte$/, "");
 ```
 
 This assumes test files always live under `/src/`. A glob like `/lib/**/*.test.svelte` or a monorepo with `/packages/ui/src/...` would produce unexpectedly long or unsimplified labels. Consider stripping any leading path up to the first meaningful segment, or just using the basename as a fallback.

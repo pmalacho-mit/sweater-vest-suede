@@ -4,7 +4,7 @@
   import { createCapturer } from "./utils/capture";
   import { PromiseQueue } from "./utils/promise-queue";
   import until from "./utils/until";
-  import { createTestAbortMechanism } from "./utils/abort";
+  import { createTestAbortMechanism, TestAborted } from "./utils/abort";
   import { flushSync, type Snippet } from "svelte";
 
   export type Pocket = Record<string, any>;
@@ -273,7 +273,9 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
 
     const testFilterSource =
       new URL(location.href).searchParams.get("testFilter") ?? undefined;
-    const testFilter = testFilterSource ? new RegExp(testFilterSource, "i") : undefined;
+    const testFilter = testFilterSource
+      ? new RegExp(testFilterSource, "i")
+      : undefined;
 
     // Pending capture promises — resolved URIs are bundled into the test-complete event.
     const pendingCaptures: Promise<{ type: string; dataUri: string }>[] = [];
@@ -281,7 +283,10 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
     const rawCapture = createCapturer(container);
     const capture: typeof rawCapture = (type, options?) => {
       const result = rawCapture(type, options as never);
-      if (reportServerUrl && (type === "png" || type === "jpeg" || type === "svg")) {
+      if (
+        reportServerUrl &&
+        (type === "png" || type === "jpeg" || type === "svg")
+      ) {
         const { uri } = result as { uri: Promise<string>; download: unknown };
         pendingCaptures.push(uri.then((dataUri) => ({ type, dataUri })));
       }
@@ -325,42 +330,44 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
       }
 
       const startedAt = Date.now();
-      await body(harness).then(
-        async () => {
-          if (send) {
-            const captures = await Promise.all(pendingCaptures);
-            await send({
-              type: "test-complete",
-              name,
-              id,
-              status: "passed",
-              durationMs: Date.now() - startedAt,
-              captures,
-              notes: collectedNotes,
-            });
-          }
-        },
-        async (e) => {
-          if (!(e instanceof TestAborted) && send) {
-            const captures = await Promise.all(pendingCaptures);
-            await send({
-              type: "test-complete",
-              name,
-              id,
-              status: "failed",
-              durationMs: Date.now() - startedAt,
-              error: {
-                message: e?.message,
-                stack: e?.stack,
-                matcherResult: e?.matcherResult,
-              },
-              captures,
-              notes: collectedNotes,
-            });
-          }
-          error(e);
-        },
-      ).finally(begin(() => controller.abort("Test has been aborted")));
+      await body(harness)
+        .then(
+          async () => {
+            if (send) {
+              const captures = await Promise.all(pendingCaptures);
+              await send({
+                type: "test-complete",
+                name,
+                id,
+                status: "passed",
+                durationMs: Date.now() - startedAt,
+                captures,
+                notes: collectedNotes,
+              });
+            }
+          },
+          async (e) => {
+            if (!(e instanceof TestAborted) && send) {
+              const captures = await Promise.all(pendingCaptures);
+              await send({
+                type: "test-complete",
+                name,
+                id,
+                status: "failed",
+                durationMs: Date.now() - startedAt,
+                error: {
+                  message: e?.message,
+                  stack: e?.stack,
+                  matcherResult: e?.matcherResult,
+                },
+                captures,
+                notes: collectedNotes,
+              });
+            }
+            error(e);
+          },
+        )
+        .finally(begin(() => controller.abort("Test has been aborted")));
     }).start;
 
     queue.open();
