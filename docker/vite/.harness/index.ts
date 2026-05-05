@@ -98,7 +98,7 @@ export const configure = <const T extends string>(
     browser: {
       kind: browser,
       session: name,
-      container: `sweater-vest-browser-control-${browser}` as const,
+      container: `${name}-sweater-vest-browser-control-${browser}` as const,
     } as const,
   };
 };
@@ -268,8 +268,15 @@ export const sessionSuite = (import_meta_dirname: string, harness: Harness) => {
     /**
      * Opens a new browser tab at the Vite URL and returns:
      */
-    open: async () => {
-      const tabIndex = await session.newTab(config.vite.url);
+    open: async (queryParams?: Record<string, string>) => {
+      const url = new URL(config.vite.url);
+
+      if (queryParams)
+        Object.entries(queryParams).forEach(([key, value]) => {
+          url.searchParams.set(key, value);
+        });
+
+      const tabIndex = await session.newTab(url.toString());
       return {
         /** Numeric identifier for the tab within the Playwright session. */
         tabIndex,
@@ -282,6 +289,7 @@ export const sessionSuite = (import_meta_dirname: string, harness: Harness) => {
         evaluate: session.evaluateOnTab.bind(session, tabIndex) as <Return>(
           fn: () => Return,
         ) => Promise<Awaited<Return>>,
+        console: () => session.consoleForTab(tabIndex),
       };
     },
   };
@@ -291,4 +299,4 @@ export const sessionSuite = (import_meta_dirname: string, harness: Harness) => {
 export const catcher =
   <T extends Promise<boolean>>(fn: () => T) =>
   () =>
-    fn().catch(() => false);
+    fn().catch((e) => false);

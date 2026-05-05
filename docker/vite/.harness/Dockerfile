@@ -5,13 +5,13 @@ ARG HARNESS=single
 
 WORKDIR /app
 
-COPY docker/vite/harness/${HARNESS}/package.json ./package.json
+COPY docker/vite/.harness/${HARNESS}/package.json ./package.json
 RUN --mount=type=cache,target=/root/.npm \
   npm install --no-audit --prefer-offline --progress=false
 
-COPY --exclude=src/release docker/vite/harness/${HARNESS}/ ./
+COPY --exclude=src/release docker/vite/.harness/${HARNESS}/ ./
 
-COPY --exclude=**/*.test.ts --exclude=release docker/vite/${TEST_CASE}/ ./src/
+COPY --exclude=**/*test.ts --exclude=release docker/vite/${TEST_CASE}/ ./src/
 
 COPY release/ ./src/release/
 
