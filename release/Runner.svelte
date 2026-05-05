@@ -271,10 +271,15 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
     const params = new URL(location.href).searchParams;
     const reportServerUrl = params.get("reportServer") ?? undefined;
     const testFilterSource = params.get("testFilter") ?? undefined;
-    const testFilter = testFilterSource ? new RegExp(testFilterSource, "i") : undefined;
+    const testFilter = testFilterSource
+      ? new RegExp(testFilterSource, "i")
+      : undefined;
+    const componentPath = params.get("component") ?? undefined;
 
     // Pending capture promises — resolved URIs are bundled into the test-complete event.
-    const pendingCaptures: Promise<{ type: string; dataUri: string }>[] = [];
+    const pendingCaptures = reportServerUrl
+      ? ([] as Promise<{ type: string; dataUri: string }>[])
+      : undefined;
 
     const rawCapture = createCapturer(container);
     const capture: typeof rawCapture = (type, options?) => {
@@ -284,7 +289,7 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
         (type === "png" || type === "jpeg" || type === "svg")
       ) {
         const { uri } = result as { uri: Promise<string>; download: unknown };
-        pendingCaptures.push(uri.then((dataUri) => ({ type, dataUri })));
+        pendingCaptures?.push(uri.then((dataUri) => ({ type, dataUri })));
       }
       return result;
     };
@@ -320,7 +325,13 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
       // Skip tests that don't match the filter (name or id must be present to filter).
       const testIdentifier = name ?? id;
       if (testFilter && testIdentifier && !testFilter.test(testIdentifier)) {
-        if (send) await send({ type: "test-skipped", name, id });
+        if (send)
+          await send({
+            type: "test-skipped",
+            name,
+            id,
+            component: componentPath,
+          });
         begin(() => {})(); // clear pending.abort without adding a live abort entry
         return;
       }
@@ -330,11 +341,12 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
         .then(
           async () => {
             if (send) {
-              const captures = await Promise.all(pendingCaptures);
+              const captures = await Promise.all(pendingCaptures ?? []);
               await send({
                 type: "test-complete",
                 name,
                 id,
+                component: componentPath,
                 status: "passed",
                 durationMs: Date.now() - startedAt,
                 captures,
@@ -344,11 +356,12 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
           },
           async (e) => {
             if (!(e instanceof TestAborted) && send) {
-              const captures = await Promise.all(pendingCaptures);
+              const captures = await Promise.all(pendingCaptures ?? []);
               await send({
                 type: "test-complete",
                 name,
                 id,
+                component: componentPath,
                 status: "failed",
                 durationMs: Date.now() - startedAt,
                 error: {
