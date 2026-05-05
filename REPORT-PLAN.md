@@ -161,10 +161,10 @@ const reportServerUrl =
 const rawCapture = createCapturer(container);
 const pendingCaptures: Promise<{ type: string; dataUri: string }>[] = [];
 
-const capture: typeof rawCapture = (type, options) => {
-  const result = rawCapture(type, options);
+const capture: typeof rawCapture = (type, options?) => {
+  const result = rawCapture(type, options as never);
   if (reportServerUrl && (type === "png" || type === "jpeg" || type === "svg")) {
-    const { uri } = result as { uri: Promise<string>; download: any };
+    const { uri } = result as { uri: Promise<string>; download: unknown };
     pendingCaptures.push(uri.then((dataUri) => ({ type, dataUri })));
   }
   return result;
@@ -191,9 +191,9 @@ If `testFilter` is set and the test's `name` (or `id`) does not match, the test 
 
 ```ts
 gate = queue.add(mode, async () => {
-  const testIdentifier = name ?? props.id;
+  const testIdentifier = name ?? id; // `id` is destructured from props alongside `name`
   if (testFilter && testIdentifier && !testFilter.test(testIdentifier)) {
-    if (send) await send({ type: "test-skipped", name, id: props.id });
+    if (send) await send({ type: "test-skipped", name, id });
     begin(() => {})(); // clears pending.abort; returns and immediately calls complete
     return;
   }
@@ -203,7 +203,7 @@ gate = queue.add(mode, async () => {
 
 Tests without a `name` or `id` are always run when `testFilter` is active (they cannot be identified, so they are not filtered out).
 
-**Replace the existing `.catch(error)` chain with one that sends the event:**
+**Define `send` and replace the existing `.catch(error)` chain:**
 
 The existing chain is:
 ```ts
@@ -214,8 +214,10 @@ Replace with:
 ```ts
 const startedAt = Date.now();
 
+// Typed as `object` rather than a named union to avoid importing event types
+// into browser component scope — the server validates the `type` field at runtime.
 const send = reportServerUrl
-  ? (event: TestCompleteEvent | TestSkippedEvent) =>
+  ? (event: object) =>
       fetch(reportServerUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -223,23 +225,23 @@ const send = reportServerUrl
       }).catch(() => {}) // server gone — don't crash the test
   : undefined;
 
-body(harness)
+await body(harness)
   .then(
     async () => {
       if (send) {
         const captures = await Promise.all(pendingCaptures);
-        await send({ type: "test-complete", name, id: props.id, status: "passed", durationMs: Date.now() - startedAt, captures, notes: collectedNotes });
+        await send({ type: "test-complete", name, id, status: "passed", durationMs: Date.now() - startedAt, captures, notes: collectedNotes });
       }
     },
     async (e) => {
       if (!(e instanceof TestAborted) && send) {
         const captures = await Promise.all(pendingCaptures);
-        await send({ type: "test-complete", name, id: props.id, status: "failed", durationMs: Date.now() - startedAt, error: { message: e?.message, stack: e?.stack, matcherResult: e?.matcherResult }, captures, notes: collectedNotes });
+        await send({ type: "test-complete", name, id, status: "failed", durationMs: Date.now() - startedAt, error: { message: e?.message, stack: e?.stack, matcherResult: e?.matcherResult }, captures, notes: collectedNotes });
       }
       error(e); // original Container error handler still called
     },
   )
-  .finally(begin(…))
+  .finally(begin(() => controller.abort("Test has been aborted")));
 ```
 
 The `.then(onFulfilled, onRejected)` form is used instead of `.then().catch()` so that a failure in `onFulfilled` does not feed into `onRejected`. The `error(e)` call in `onRejected` preserves the existing console-logging behaviour.
@@ -255,22 +257,26 @@ const harness = abort.proxy({ ...test, container, set, preventRender, capture, o
 
 ### 2. `release/Sweater.svelte` — send `suite-ready` after all tests mount
 
-In the `onMount` block, after the existing `setTotal(containers.total)` call:
+In the `onMount` block, replacing the existing `setTotal(containers.total)` call:
 
 ```ts
-const reportServerUrl =
-  new URL(location.href).searchParams.get("reportServer") ?? undefined;
-
-if (reportServerUrl) {
+// Capture total BEFORE containers.reset() clears the map to 0.
+const totalTests = containers.total;
+setTotal(totalTests);
+containers.reset();
+next();
+const reportServerUrl = location().searchParams.get("reportServer");
+if (reportServerUrl)
   fetch(reportServerUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ type: "suite-ready", totalTests: containers.total }),
+    body: JSON.stringify({ type: "suite-ready", totalTests }),
   }).catch(() => {});
-}
 ```
 
-**Total additions to `Sweater.svelte`: 7 lines.**
+Note: `location` is already defined in Sweater.svelte's module scope as `const location = () => new URL(window.location.href)`, so `location()` is used rather than `new URL(location.href)`. `totalTests` must be captured before `containers.reset()` because `reset()` calls `target.clear()`, making `containers.total` return 0.
+
+**Total additions to `Sweater.svelte`: 8 lines** (one extra to capture `totalTests` before the reset).
 
 ---
 
@@ -488,7 +494,7 @@ Report: ./sweater-vest-report.html
 
 A component line shows `SKIP` (yellow/dim) when all its tests were skipped (i.e., it matched `componentPattern` but no tests matched `testPattern`). Individual skipped tests within an otherwise-run component are counted in the totals but not printed as separate lines.
 
-Uses ANSI colour codes when `process.stdout.isTTY` is true. Per-test error lines show the message and first relevant stack frame only; full traces are in the HTML file.
+Uses ANSI colour codes when `process.stdout.isTTY` is true and no `write` override is provided (`tty = !options?.write && process.stdout.isTTY`). This means injected `write` functions used in tests always receive plain text, so test assertions never need to strip escape codes. Per-test error lines show the message and first relevant stack frame only; full traces are in the HTML file.
 
 ### `release/report.ts` (new — consumer-facing entry point)
 
@@ -524,6 +530,8 @@ npm run report Button -t hover
 ```
 
 The positional argument and `-t` value are treated as case-insensitive regular expressions, matching Vitest's convention. Parsing uses `process.argv` directly — no argument-parser dependency needed for two flags.
+
+The CLI entry point guard uses `fileURLToPath(import.meta.url) === process.argv[1]` to detect when the script is run directly, which works correctly under both `node --experimental-strip-types` and compiled output.
 
 **Steps inside `generateReport`:**
 
@@ -569,9 +577,9 @@ The positional argument and `-t` value are treated as case-insensitive regular e
 
 6. **Call `printReport`** to write the stdout summary (including skipped count if any).
 
-7. **Call `renderReport`** and write to `outputPath`.
+7. **Call `renderReport`** and write to `outputPath` via `fs/promises.writeFile`. Log the output path to `console.log` afterwards.
 
-8. **Clean up:** close sessions, remove browser containers.
+8. **Clean up:** close sessions (inside the loop per browser), remove browser containers in a `finally` block via `Promise.allSettled` so cleanup always runs even if a browser errors.
 
 ---
 
