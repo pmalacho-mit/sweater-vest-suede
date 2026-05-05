@@ -96,9 +96,17 @@
     counts.subtract(props);
     const allMounted = counts.total() === 0;
     if (!allMounted) return;
-    setTotal(containers.total);
+    const totalTests = containers.total;
+    setTotal(totalTests);
     containers.reset();
     next();
+    const reportServerUrl = location().searchParams.get("reportServer");
+    if (reportServerUrl)
+      fetch(reportServerUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "suite-ready", totalTests }),
+      }).catch(() => {});
   });
 </script>
 

@@ -77,9 +77,19 @@
 </script>
 
 <script lang="ts">
-  import type { Component } from "svelte";
+  import { onMount, type Component } from "svelte";
 
   let { glob }: Props = $props();
+
+  onMount(() => {
+    const reportServerUrl = new URL(window.location.href).searchParams.get("reportServer");
+    if (!reportServerUrl) return;
+    fetch(reportServerUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "gallery-ready", paths: Object.keys(glob) }),
+    }).catch(() => {});
+  });
 
   const selected = $derived(
     new URLSearchParams(window.location.search).get("component"),

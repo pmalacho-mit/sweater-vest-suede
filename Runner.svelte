@@ -62,6 +62,13 @@
     withUserFocus: (
       fn: (userEvent: typeof test.userEvent) => Promise<void>,
     ) => Promise<void>;
+    /**
+     * Adds a free-form text annotation to this test's report card.
+     * Call it at any point in the test body to label a state transition or
+     * record a measurement. Annotations appear in call order in the report.
+     * No-op when not running under a report server.
+     */
+    note: (text: string) => void;
   } & Omit<typeof import("@storybook/test"), "userEvent">;
   /* pd: harness-docs */
 
@@ -189,6 +196,7 @@
     body,
     vest,
     name,
+    id,
     mode = "parallel",
     manual = false,
     lazy = false,
@@ -259,7 +267,41 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
 
   onMount(async () => {
     if (!container) throw new Error("Container element not found");
-    const capture = createCapturer(container);
+
+    const reportServerUrl =
+      new URL(location.href).searchParams.get("reportServer") ?? undefined;
+
+    const testFilterSource =
+      new URL(location.href).searchParams.get("testFilter") ?? undefined;
+    const testFilter = testFilterSource ? new RegExp(testFilterSource, "i") : undefined;
+
+    // Pending capture promises — resolved URIs are bundled into the test-complete event.
+    const pendingCaptures: Promise<{ type: string; dataUri: string }>[] = [];
+
+    const rawCapture = createCapturer(container);
+    const capture: typeof rawCapture = (type, options?) => {
+      const result = rawCapture(type, options as never);
+      if (reportServerUrl && (type === "png" || type === "jpeg" || type === "svg")) {
+        const { uri } = result as { uri: Promise<string>; download: unknown };
+        pendingCaptures.push(uri.then((dataUri) => ({ type, dataUri })));
+      }
+      return result;
+    };
+
+    const collectedNotes: string[] = [];
+    const note = (text: string) => {
+      if (reportServerUrl) collectedNotes.push(text);
+    };
+
+    const send = reportServerUrl
+      ? (event: object) =>
+          fetch(reportServerUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(event),
+          }).catch(() => {})
+      : undefined;
+
     const harness: TestHarness<T> = abort.proxy({
       ...test,
       container,
@@ -270,13 +312,56 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
       definition,
       withUserFocus,
       delay,
+      note,
     });
 
-    gate = queue.add(mode, () =>
-      body(harness)
-        .catch(error)
-        .finally(begin(() => controller.abort("Test has been aborted"))),
-    ).start;
+    gate = queue.add(mode, async () => {
+      // Skip tests that don't match the filter (name or id must be present to filter).
+      const testIdentifier = name ?? id;
+      if (testFilter && testIdentifier && !testFilter.test(testIdentifier)) {
+        if (send) await send({ type: "test-skipped", name, id });
+        begin(() => {})(); // clear pending.abort without adding a live abort entry
+        return;
+      }
+
+      const startedAt = Date.now();
+      await body(harness).then(
+        async () => {
+          if (send) {
+            const captures = await Promise.all(pendingCaptures);
+            await send({
+              type: "test-complete",
+              name,
+              id,
+              status: "passed",
+              durationMs: Date.now() - startedAt,
+              captures,
+              notes: collectedNotes,
+            });
+          }
+        },
+        async (e) => {
+          if (!(e instanceof TestAborted) && send) {
+            const captures = await Promise.all(pendingCaptures);
+            await send({
+              type: "test-complete",
+              name,
+              id,
+              status: "failed",
+              durationMs: Date.now() - startedAt,
+              error: {
+                message: e?.message,
+                stack: e?.stack,
+                matcherResult: e?.matcherResult,
+              },
+              captures,
+              notes: collectedNotes,
+            });
+          }
+          error(e);
+        },
+      ).finally(begin(() => controller.abort("Test has been aborted")));
+    }).start;
 
     queue.open();
   });
