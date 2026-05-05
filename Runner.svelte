@@ -268,14 +268,10 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
   onMount(async () => {
     if (!container) throw new Error("Container element not found");
 
-    const reportServerUrl =
-      new URL(location.href).searchParams.get("reportServer") ?? undefined;
-
-    const testFilterSource =
-      new URL(location.href).searchParams.get("testFilter") ?? undefined;
-    const testFilter = testFilterSource
-      ? new RegExp(testFilterSource, "i")
-      : undefined;
+    const params = new URL(location.href).searchParams;
+    const reportServerUrl = params.get("reportServer") ?? undefined;
+    const testFilterSource = params.get("testFilter") ?? undefined;
+    const testFilter = testFilterSource ? new RegExp(testFilterSource, "i") : undefined;
 
     // Pending capture promises — resolved URIs are bundled into the test-complete event.
     const pendingCaptures: Promise<{ type: string; dataUri: string }>[] = [];
