@@ -19,7 +19,7 @@ const startDiscoveryServer = async (timeout = 30_000) => {
   const { url, close } = await createEventListener({
     timeout,
     onEvent: (_, event, close) => {
-      if (event.type !== "gallery-ready" || resolved) return;
+      if (event.type !== "closet-ready" || resolved) return;
       resolved = true;
       close();
       resolve(event.paths);

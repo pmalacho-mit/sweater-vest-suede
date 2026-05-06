@@ -16,7 +16,7 @@ const harness = resolve(import.meta.dirname);
 const root = resolve(harness, "..", "..", "..");
 const dockerfile = relative(root, resolve(harness, "Dockerfile"));
 
-type Harness = "single" | "gallery";
+type Harness = "single" | "closet";
 
 /** Returns a promise that resolves after `ms` milliseconds. */
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
