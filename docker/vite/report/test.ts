@@ -1,7 +1,7 @@
 import { describe, test, expect } from "vitest";
 import { sessionSuite } from "../.harness/index.ts";
 import {
-  createEventListenerServer,
+  createEventListener,
   events,
   type TestResult,
 } from "../../../release/report/events.ts";
@@ -15,17 +15,17 @@ import { defer } from "../../../release/utils/index.ts";
  */
 const startDiscoveryServer = async (timeout = 30_000) => {
   let resolved = false;
-  const paths = defer<string[]>();
-  const { url, close } = await createEventListenerServer({
+  const { promise: paths, resolve, reject } = defer<string[]>();
+  const { url, close } = await createEventListener({
     timeout,
     onEvent: (_, event, close) => {
       if (event.type !== "gallery-ready" || resolved) return;
       resolved = true;
       close();
-      paths.resolve(event.paths);
+      resolve(event.paths);
     },
     onTimeout: () =>
-      paths.reject(
+      reject(
         new Error("Discovery server timed out waiting for gallery-ready event"),
       ),
   });
@@ -39,8 +39,8 @@ const startDiscoveryServer = async (timeout = 30_000) => {
 const startEventServer = async (timeout = 60_000) => {
   let total: number | undefined;
   const results: TestResult[] = [];
-  const done = defer<TestResult[]>();
-  const { url, close } = await createEventListenerServer({
+  const { promise: done, resolve, reject } = defer<TestResult[]>();
+  const { url, close } = await createEventListener({
     timeout,
     onEvent: (_, event, close) => {
       if (event.type === "suite-ready") total = event.totalTests;
@@ -48,10 +48,10 @@ const startEventServer = async (timeout = 60_000) => {
         results.push(events.toResult(event));
 
       if (total !== undefined && results.length >= total)
-        (close(), done.resolve([...results]));
+        (close(), resolve([...results]));
     },
     onTimeout: () =>
-      done.reject(new Error("Event server timed out waiting for test results")),
+      reject(new Error("Event server timed out waiting for test results")),
   });
   return { url, done, close };
 };
