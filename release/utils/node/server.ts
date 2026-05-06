@@ -3,7 +3,7 @@ import {
   type IncomingMessage,
   type ServerResponse,
 } from "node:http";
-import { getDevcontainerIp } from "../../suede/programmatic-docker-suede/devcontainer.js";
+import devcontainer from "../../suede/programmatic-docker-suede/devcontainer.js";
 
 const MAX_BODY_BYTES = 50 * 1024 * 1024; // 50 MB
 
@@ -93,6 +93,6 @@ export const createHttpListener = ({
 
     server.listen(0, "0.0.0.0", () => {
       const { port } = server.address() as { port: number };
-      resolve({ url: `http://${getDevcontainerIp()}:${port}`, close });
+      resolve({ url: `http://${devcontainer.ip()}:${port}`, close });
     });
   });

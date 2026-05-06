@@ -1,8 +1,5 @@
 import { writeFile } from "node:fs/promises";
-import {
-  getDevcontainerIp,
-  devcontainerNetwork,
-} from "../suede/programmatic-docker-suede/devcontainer.js";
+import { devcontainer } from "../suede/programmatic-docker-suede/devcontainer.js";
 import { container } from "../suede/programmatic-docker-suede";
 import {
   buildAndRun,
@@ -15,6 +12,7 @@ import { startReportServer, type ReportServer } from "./events.ts";
 import { renderReport, type ReportInput } from "./html.ts";
 import { printReport } from "./print.ts";
 import { isCliEntryPoint } from "../utils/node/index.ts";
+import { readableTimestamp } from "$release/utils/index.ts";
 
 export type { TestResult, Event } from "./events.ts";
 export type { ReportInput } from "./html.ts";
@@ -33,7 +31,7 @@ export type ReportOptions = {
 };
 
 export const defaults = {
-  galleryUrl: `http://${getDevcontainerIp()}:5173`,
+  galleryUrl: `http://${devcontainer.ip()}:5173`,
   browsers: ["chromium"],
   outputPath: "./fashion-show.html",
 } as const satisfies ReportOptions;
@@ -65,8 +63,12 @@ export type ReportSummary = {
 };
 
 const names = {
-  container: (browser: Browser) => `sweater-vest-${browser}`,
-  session: (browser: Browser) => `sweater-vest-report-${browser}`, // should be more unique to project
+  container: (
+    browser: Browser,
+    { Config: { Image } }: Awaited<ReturnType<typeof devcontainer.inspect>>,
+  ) => `${browser}-${Image}`,
+  session: (browser: Browser, timestamp: string) =>
+    `sweater-vest-report-${browser}-${timestamp}`,
 };
 
 export type SearchParam = "component" | "reportServer" | "testFilter";
@@ -110,29 +112,31 @@ export const generateReport = async (
   const startedBrowsers = new Set<Browser>();
   const sessions = new Map<Browser, SessionWithTabs>();
   let server: ReportServer | undefined;
+  const inspected = await devcontainer.inspect();
+  const timestamp = readableTimestamp();
 
   try {
-    const network = await devcontainerNetwork();
-
     const prepare = async (browser: Browser) => {
       await buildAndRun(browser, {
-        container: () => names.container(browser),
-        network,
+        container: () => names.container(browser, inspected),
+        network: await devcontainer.network(),
         log: true,
         skipIfRunning: true,
       });
       startedBrowsers.add(browser);
-      await playwright.ready(names.container(browser));
+      await playwright.ready(names.container(browser, inspected));
     };
 
     await Promise.all(browsers.map(prepare));
+
+    const inspected = await devcontainer.inspect();
 
     const session = async (browser: Browser) =>
       [
         browser,
         await sessionWithTabs(
-          names.container(browser),
-          names.session(browser),
+          names.container(browser, inspected),
+          names.session(browser, timestamp),
           browser,
         ),
       ] as const;
@@ -187,13 +191,16 @@ export const generateReport = async (
     await Promise.allSettled(
       browsers.map((browser) =>
         playwright
-          .close(names.container(browser), names.session(browser))
+          .close(
+            names.container(browser, inspected),
+            names.session(browser, timestamp),
+          )
           .catch(() => {}),
       ),
     );
     await Promise.allSettled(
       [...startedBrowsers].map((browser) =>
-        container.tryRemove(names.container(browser)),
+        container.tryRemove(names.container(browser, inspected)),
       ),
     );
   }
