@@ -4,29 +4,42 @@ import { createCapturer as rawCreateCapturer } from "./utils/capture";
 const param = (key: SearchParam, url?: URL) =>
   (url ?? new URL(window.location.href)).searchParams.get(key) ?? undefined;
 
+const server = (url?: URL) => param("reportServer", url);
+
+const tryPost = (event: Event.Any, url?: URL | string) => {
+  const endpoint = url
+    ? typeof url === "string"
+      ? url
+      : server(url)
+    : undefined;
+  if (!endpoint) return;
+  fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(event),
+  }).catch(() => {});
+};
+
 export const suiteReady = (totalTests: number) => {
   const url = new URL(window.location.href);
-  const reportServerUrl = param("reportServer", url);
-  if (reportServerUrl)
-    fetch(reportServerUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "suite-ready",
-        totalTests,
-        component: param("component", url),
-      } satisfies Event.SuiteReady),
-    }).catch(() => {});
+  tryPost(
+    {
+      type: "suite-ready",
+      totalTests,
+      component: param("component", url),
+    },
+    url,
+  );
 };
 
 export const reportables = () => {
   const url = new URL(window.location.href);
-  const reportServerUrl = param("reportServer", url);
+  const endpoint = server(url);
 
-  if (!reportServerUrl)
+  if (!endpoint)
     return {
       createCapturer: rawCreateCapturer,
-      note: (_: string) => {},
+      note: (_: string) => {}, // no-op
     };
 
   const pendingCaptures = new Array<
@@ -58,26 +71,22 @@ export const reportables = () => {
   const notes: string[] = [];
   const note = (text: string) => notes.push(text);
 
-  const send = (event: Event.Any) =>
-    fetch(reportServerUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(event),
-    }).catch(() => {});
-
   const component = param("component", url);
 
   const complete = async (startedAt: number, name?: string, id?: string) =>
-    send({
-      type: "test-complete",
-      name,
-      id,
-      component,
-      status: "passed",
-      durationMs: Date.now() - startedAt,
-      captures: await Promise.all(pendingCaptures),
-      notes,
-    });
+    tryPost(
+      {
+        type: "test-complete",
+        name,
+        id,
+        component,
+        status: "passed",
+        durationMs: Date.now() - startedAt,
+        captures: await Promise.all(pendingCaptures),
+        notes,
+      },
+      endpoint,
+    );
 
   const fail = async (
     startedAt: number,
@@ -85,38 +94,36 @@ export const reportables = () => {
     name?: string,
     id?: string,
   ) =>
-    send({
-      type: "test-complete",
-      name,
-      id,
-      component,
-      status: "failed",
-      durationMs: Date.now() - startedAt,
-      error: {
-        message: error?.message,
-        stack: error?.stack,
-        matcherResult: error?.matcherResult,
+    tryPost(
+      {
+        type: "test-complete",
+        name,
+        id,
+        component,
+        status: "failed",
+        durationMs: Date.now() - startedAt,
+        error: {
+          message: error?.message,
+          stack: error?.stack,
+          matcherResult: error?.matcherResult,
+        },
+        captures: await Promise.all(pendingCaptures),
+        notes,
       },
-      captures: await Promise.all(pendingCaptures),
-      notes,
-    });
+      endpoint,
+    );
 
   const testFilterSource = param("testFilter", url);
   const testFilter = testFilterSource
     ? new RegExp(testFilterSource, "i")
     : undefined;
 
-  /**
-   * Skip tests that don't match the filter (name or id must be present to filter).
-   * @param name
-   * @param id
-   * @returns
-   */
   const skip = (name?: string, id?: string) => {
     const testIdentifier = name ?? id;
     const skipped =
       testFilter && testIdentifier && !testFilter.test(testIdentifier);
-    if (skipped) send({ type: "test-skipped", name, id, component });
+    if (skipped)
+      tryPost({ type: "test-skipped", name, id, component }, endpoint);
     return Boolean(skipped);
   };
 
@@ -125,7 +132,9 @@ export const reportables = () => {
     note,
     complete,
     fail,
-    /** Skip tests that don't match the filter (name or id must be present to filter). */
+    /**
+     * Returns `true` if the test with the given `name` or `id` should be skipped based on the `testFilter`
+     */
     skip,
   };
 };
