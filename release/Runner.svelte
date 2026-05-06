@@ -289,14 +289,14 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
       if (skip?.(name, id)) return begin(() => {})(); // clear pending.abort without adding a live abort entry
 
       const startedAt = Date.now();
+      const fulfill = complete?.bind(null, startedAt, name, id);
+      const reject = (e: any) => {
+        if (!(e instanceof TestAborted)) fail?.(startedAt, e, name, id);
+        error(e);
+      };
+
       await body(harness)
-        .then(
-          () => complete?.(startedAt, name, id),
-          async (e) => {
-            if (!(e instanceof TestAborted)) fail?.(startedAt, e, name, id);
-            error(e);
-          },
-        )
+        .then(fulfill, reject)
         .finally(begin(() => controller.abort("Test has been aborted")));
     }).start;
 
