@@ -270,22 +270,21 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
     if (!container) throw new Error("Container element not found");
 
     const { createCapturer, note, skip, complete, fail } = reportables();
-    const capture = createCapturer(container);
 
     const harness: TestHarness<T> = abort.proxy({
       ...test,
       container,
       set,
       preventRender,
-      capture,
       onAbort,
       definition,
       withUserFocus,
       delay,
       note,
+      capture: createCapturer(container),
     });
 
-    gate = queue.add(mode, async () => {
+    const run = async () => {
       if (skip?.(name, id)) return begin(() => {})(); // clear pending.abort without adding a live abort entry
 
       const startedAt = Date.now();
@@ -298,8 +297,9 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
       await body(harness)
         .then(fulfill, reject)
         .finally(begin(() => controller.abort("Test has been aborted")));
-    }).start;
+    };
 
+    gate = queue.add(mode, run).start;
     queue.open();
   });
 </script>
