@@ -26,6 +26,7 @@ type Options = Partial<
     onBuild: (stream: CommandStream) => void;
     log: boolean;
     network: string;
+    skipIfRunning?: boolean;
   }
 >;
 
@@ -38,6 +39,15 @@ type Options = Partial<
  */
 export const buildAndRun = async (BROWSER: Browser, details?: Options) => {
   const name = (details?.container ?? defaults.container)(BROWSER);
+
+  if (details?.skipIfRunning && (await container.isRunning(name))) {
+    if (details?.log)
+      console.log(`Reusing existing running container for ${BROWSER} (${name})`);
+    // container.resolve returns a Dockerode.Container handle for an existing container,
+    // matching the return type of container.run below.
+    return container.resolve(name);
+  }
+
   const tag = (details?.image ?? defaults.image)(BROWSER);
 
   if (details?.log)
@@ -235,6 +245,8 @@ export const sessionWithTabs = async (
       withTabSelected(index, () => playwright.console(container, session)),
   };
 };
+
+export type SessionWithTabs = Awaited<ReturnType<typeof sessionWithTabs>>;
 
 export const readFile = (name: string, path: string) =>
   container.exec(name, ["cat", path]).complete({ out: "buffer" });

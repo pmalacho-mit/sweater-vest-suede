@@ -3,7 +3,8 @@
   import type { Props as ContainerProps } from "./Container.svelte";
   import Container, { mechanism, next, setTotal } from "./Container.svelte";
   import type { Snippet } from "svelte";
-  import { createContainerMap } from "./utils/container-map";
+  import { createContainerMap } from "./utils/container-map.js";
+  import { suiteReady } from "./reporting.js";
   import "./globals.d.ts";
 
   type ConfigProps = ContainerProps & {
@@ -96,22 +97,11 @@
     counts.subtract(props);
     const allMounted = counts.total() === 0;
     if (!allMounted) return;
-    const totalTests = containers.total;
-    setTotal(totalTests);
+    const { total } = containers;
+    setTotal(total);
     containers.reset();
     next();
-    const sweaterParams = location().searchParams;
-    const reportServerUrl = sweaterParams.get("reportServer");
-    if (reportServerUrl)
-      fetch(reportServerUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "suite-ready",
-          totalTests,
-          component: sweaterParams.get("component") ?? undefined,
-        }),
-      }).catch(() => {});
+    suiteReady(total);
   });
 </script>
 

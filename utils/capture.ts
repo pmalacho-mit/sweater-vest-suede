@@ -43,7 +43,7 @@ export const createCapturer = (root: HTMLElement) => {
 
   return <T extends CaptureKey>(
     type: T,
-    options?: CaptureOptions<T>
+    options?: CaptureOptions<T>,
   ): Return<T> => {
     const value = capturers[type](root, options);
 

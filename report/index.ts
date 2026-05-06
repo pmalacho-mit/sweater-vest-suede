@@ -1,34 +1,59 @@
 import { writeFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
 import {
   getDevcontainerIp,
   devcontainerNetwork,
 } from "../suede/programmatic-docker-suede/devcontainer.js";
-import { container } from "../suede/programmatic-docker-suede/index.js";
+import { container } from "../suede/programmatic-docker-suede";
 import {
   buildAndRun,
   playwright,
   sessionWithTabs,
+  type SessionWithTabs,
   type Browser,
-} from "../suede/browser-control-container-suede/index.js";
-import { startReportServer } from "./events.ts";
+} from "../suede/browser-control-container-suede";
+import { startReportServer, type ReportServer } from "./events.ts";
 import { renderReport, type ReportInput } from "./html.ts";
 import { printReport } from "./print.ts";
+import { isCliEntryPoint } from "../utils/node/index.ts";
 
-export type { TestResult } from "./events.ts";
+export type { TestResult, Event } from "./events.ts";
 export type { ReportInput } from "./html.ts";
 
 export type ReportOptions = {
-  /** URL where Closet.svelte is rendered. Defaults to http://<devcontainerIp>:5173 */
+  /** URL where Closet.svelte is rendered. */
   galleryUrl?: string;
-  /** Browsers to run. Defaults to ["chromium"]. */
+  /** Browsers to run. */
   browsers?: Browser[];
-  /** Output path for the HTML report. Defaults to ./sweater-vest-report.html */
+  /** Output path for the HTML report. */
   outputPath?: string;
   /** Only open components whose path matches this pattern. */
   componentPattern?: RegExp;
   /** Only run tests whose name or id matches this pattern. */
   testPattern?: RegExp;
+};
+
+export const defaults = {
+  galleryUrl: `http://${getDevcontainerIp()}:5173`,
+  browsers: ["chromium"],
+  outputPath: "./fashion-show.html",
+} as const satisfies ReportOptions;
+
+export type Defaults = typeof defaults;
+
+const getOrDefaults = <K extends keyof ReportOptions>(
+  options: ReportOptions,
+  ...keys: K[]
+) => {
+  type Result<Key extends K> = Key extends keyof Defaults
+    ? NonNullable<ReportOptions[Key]> | Defaults[Key]
+    : ReportOptions[Key];
+  type Results = { [k in K]: Result<k> };
+  const result = {} as Results;
+  for (const key of keys)
+    result[key] = (options[key] ?? (defaults as ReportOptions)[key]) as Result<
+      typeof key
+    >;
+  return result;
 };
 
 export type ReportSummary = {
@@ -39,138 +64,142 @@ export type ReportSummary = {
   browsers: ReportInput["browsers"];
 };
 
-const containerName = (browser: Browser) => `sweater-vest-report-${browser}`;
+const names = {
+  container: (browser: Browser) => `sweater-vest-${browser}`,
+  session: (browser: Browser) => `sweater-vest-report-${browser}`, // should be more unique to project
+};
+
+export type SearchParam = "component" | "reportServer" | "testFilter";
+
+const urls = {
+  param: ({ searchParams }: URL, key: SearchParam, value: string) =>
+    searchParams.set(key, value),
+  discover: (gallery: string, server: ReportServer) => {
+    const url = new URL(gallery);
+    urls.param(url, "reportServer", `${server.url}/discover`);
+    return url.toString();
+  },
+  test: (
+    gallery: string,
+    server: ReportServer,
+    browser: Browser,
+    component: string,
+    testPattern?: RegExp,
+  ) => {
+    const url = new URL(gallery);
+    urls.param(url, "component", component);
+    urls.param(url, "reportServer", `${server.url}/${browser}`);
+    if (testPattern) urls.param(url, "testFilter", testPattern.source);
+    return url.toString();
+  },
+};
 
 export const generateReport = async (
   options: ReportOptions = {},
 ): Promise<ReportSummary> => {
-  const galleryUrl = options.galleryUrl ?? `http://${getDevcontainerIp()}:5173`;
-  const browsers: Browser[] = options.browsers ?? ["chromium"];
-  const outputPath = options.outputPath ?? "./sweater-vest-report.html";
-  const { componentPattern, testPattern } = options;
+  const { galleryUrl, browsers, outputPath, componentPattern, testPattern } =
+    getOrDefaults(
+      options,
+      "galleryUrl",
+      "browsers",
+      "outputPath",
+      "componentPattern",
+      "testPattern",
+    );
 
   const startedBrowsers = new Set<Browser>();
-  const sessions = new Map<
-    Browser,
-    Awaited<ReturnType<typeof sessionWithTabs>>
-  >();
-  let server: Awaited<ReturnType<typeof startReportServer>> | undefined;
+  const sessions = new Map<Browser, SessionWithTabs>();
+  let server: ReportServer | undefined;
 
   try {
-    // Start all browser containers in parallel.
     const network = await devcontainerNetwork();
-    await Promise.all(
-      browsers.map(async (browser) => {
-        await buildAndRun(browser, {
-          container: () => containerName(browser),
-          network,
-          log: true,
-        });
-        startedBrowsers.add(browser);
-        await playwright.ready(containerName(browser));
-      }),
-    );
 
-    // Open playwright sessions for all browsers in parallel.
-    const entries = await Promise.all(
-      browsers.map(
-        async (browser) =>
-          [
-            browser,
-            await sessionWithTabs(
-              containerName(browser),
-              `report-${browser}`,
-              browser,
-            ),
-          ] as const,
-      ),
-    );
-    for (const [browser, session] of entries) sessions.set(browser, session);
+    const prepare = async (browser: Browser) => {
+      await buildAndRun(browser, {
+        container: () => names.container(browser),
+        network,
+        log: true,
+        skipIfRunning: true,
+      });
+      startedBrowsers.add(browser);
+      await playwright.ready(names.container(browser));
+    };
 
-    // Start the single shared report server.
+    await Promise.all(browsers.map(prepare));
+
+    const session = async (browser: Browser) =>
+      [
+        browser,
+        await sessionWithTabs(
+          names.container(browser),
+          names.session(browser),
+          browser,
+        ),
+      ] as const;
+
+    for (const entry of await Promise.all(browsers.map(session)))
+      sessions.set(...entry);
+
     server = await startReportServer();
 
-    // Phase 1: open all gallery tabs simultaneously to discover component paths.
-    // Closet.svelte fires gallery-ready on the /discover route; all browsers see the
-    // same glob so paths.resolve() fires on the first arrival and ignores the rest.
-    await Promise.all(
-      browsers.map((browser) => {
-        const url = new URL(galleryUrl);
-        url.searchParams.set("reportServer", `${server!.url}/discover`);
-        return sessions.get(browser)!.newTab(url.toString());
-      }),
-    );
+    const discover = (browser: Browser) =>
+      sessions.get(browser)!.newTab(urls.discover(galleryUrl, server!));
+
+    await Promise.all(browsers.map(discover));
 
     const allPaths = await server.paths;
     const paths = componentPattern
-      ? allPaths.filter((p) => componentPattern.test(p))
+      ? allPaths.filter((path) => componentPattern.test(path))
       : allPaths;
 
-    // Phase 2: open every (browser × component) tab simultaneously.
-    // Each tab uses a browser-specific route so the server can key results correctly.
     const componentResults = await Promise.all(
-      paths.flatMap((componentPath) =>
+      paths.flatMap((path) =>
         browsers.map(async (browser) => {
-          const url = new URL(galleryUrl);
-          url.searchParams.set("component", componentPath);
-          url.searchParams.set("reportServer", `${server!.url}/${browser}`);
-          if (testPattern)
-            url.searchParams.set("testFilter", testPattern.source);
-          await sessions.get(browser)!.newTab(url.toString());
-          const results = await server!.waitForComponent(
-            browser,
-            componentPath,
-          );
-          return { browser, componentPath, results };
+          await sessions
+            .get(browser)!
+            .newTab(urls.test(galleryUrl, server!, browser, path, testPattern));
+          const results = await server!.waitForComponent(browser, path);
+          return { kind: browser, path, results };
         }),
       ),
     );
 
-    const reportInput: ReportInput = {
-      generatedAt: new Date().toISOString(),
+    const reported: ReportInput = {
       galleryUrl,
-      browsers: componentResults.map(({ browser, componentPath, results }) => ({
-        kind: browser,
-        componentPath,
-        results,
-      })),
+      browsers: componentResults,
+      generatedAt: new Date().toISOString(),
     };
 
-    printReport(reportInput, { outputPath });
-    await writeFile(outputPath, renderReport(reportInput), "utf-8");
+    printReport(reported, { outputPath });
+    await writeFile(outputPath, renderReport(reported), "utf-8");
     console.log(`Report written to ${outputPath}`);
 
-    const allResults = reportInput.browsers.flatMap((b) => b.results);
+    const results = reported.browsers.flatMap((b) => b.results);
     return {
-      totalTests: allResults.length,
-      passed: allResults.filter((r) => r.status === "passed").length,
-      failed: allResults.filter((r) => r.status === "failed").length,
-      skipped: allResults.filter((r) => r.status === "skipped").length,
-      browsers: reportInput.browsers,
+      totalTests: results.length,
+      passed: results.filter((r) => r.status === "passed").length,
+      failed: results.filter((r) => r.status === "failed").length,
+      skipped: results.filter((r) => r.status === "skipped").length,
+      browsers: reported.browsers,
     };
   } finally {
     server?.close();
     await Promise.allSettled(
       browsers.map((browser) =>
         playwright
-          .close(containerName(browser), `report-${browser}`)
+          .close(names.container(browser), names.session(browser))
           .catch(() => {}),
       ),
     );
     await Promise.allSettled(
       [...startedBrowsers].map((browser) =>
-        container.tryRemove(containerName(browser)),
+        container.tryRemove(names.container(browser)),
       ),
     );
   }
 };
 
-// CLI entry point — only runs when this file is executed directly.
-const isMain =
-  process.argv[1] !== undefined &&
-  fileURLToPath(import.meta.url) === process.argv[1];
-
-if (isMain) {
+if (isCliEntryPoint(import.meta.url)) {
   const args = process.argv.slice(2);
   const tIdx = args.indexOf("-t");
   const testPatternStr = tIdx !== -1 ? args[tIdx + 1] : undefined;
