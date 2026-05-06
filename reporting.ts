@@ -1,12 +1,12 @@
 import type { SearchParam, Event } from "./report";
 import { createCapturer as rawCreateCapturer } from "./utils/capture";
 
-const param = (key: SearchParam, url?: URL) =>
+export const param = (key: SearchParam, url?: URL) =>
   (url ?? new URL(window.location.href)).searchParams.get(key) ?? undefined;
 
-const server = (url?: URL) => param("reportServer", url);
+export const server = (url?: URL) => param("reportServer", url);
 
-const tryPost = (event: Event.Any, url?: URL | string) => {
+export const tryPost = (event: Event.Any, url?: URL | string) => {
   const endpoint = url
     ? typeof url === "string"
       ? url

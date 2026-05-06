@@ -78,20 +78,21 @@
 
 <script lang="ts">
   import { onMount, type Component } from "svelte";
+  import { tryPost, param, server } from "./reporting.js";
 
   let { glob }: Props = $props();
 
   onMount(() => {
-    const params = new URL(window.location.href).searchParams;
-    const reportServerUrl = params.get("reportServer");
-    // Only fire gallery-ready on the index page, not on component tabs
-    // (?component= is set when a specific component is being run for a report).
-    if (!reportServerUrl || params.has("component")) return;
-    fetch(reportServerUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "gallery-ready", paths: Object.keys(glob) }),
-    }).catch(() => {});
+    const url = new URL(window.location.href);
+    const reportServer = server(url);
+    if (reportServer && !param("component", url))
+      tryPost(
+        {
+          type: "closet-ready",
+          paths: Object.keys(glob),
+        },
+        reportServer,
+      );
   });
 
   const selected = $derived(

@@ -5,7 +5,7 @@ export namespace Event {
   export type Typed<T extends string = string, V = {}> = { type: T } & V;
 
   /** Sent by Closet.svelte on mount when `?reportServer=` is present and no `?component=` is set. */
-  export type GalleryReady = Typed<"gallery-ready", { paths: string[] }>;
+  export type GalleryReady = Typed<"closet-ready", { paths: string[] }>;
 
   /** Sent by Sweater.svelte once all `<Sweater>` instances on the page have mounted. */
   export type SuiteReady = Typed<
@@ -36,6 +36,8 @@ export namespace Event {
 
   export type Any = GalleryReady | SuiteReady | TestComplete | TestSkipped;
 
+  export type Type = Any["type"];
+
   export type Handler = (
     route: string,
     event: Event.Any,
@@ -54,23 +56,18 @@ export type TestResult = {
 };
 
 export const events = {
-  typed: (raw: unknown): raw is Event.Typed =>
+  is: (raw: unknown): raw is Event.Any =>
     raw !== null &&
     typeof raw === "object" &&
     "type" in raw &&
-    typeof raw.type === "string",
-  is: ({ type }: Event.Typed) =>
-    type === "gallery-ready" ||
-    type === "suite-ready" ||
-    type === "test-complete" ||
-    type === "test-skipped",
+    typeof raw.type === "string" &&
+    (raw.type === ("closet-ready" satisfies Event.Type) ||
+      raw.type === ("suite-ready" satisfies Event.Type) ||
+      raw.type === ("test-complete" satisfies Event.Type) ||
+      raw.type === ("test-skipped" satisfies Event.Type)),
   /** Returns a typed `ReportEvent` if `raw` has a known `type` discriminant, otherwise `undefined`. */
   parse: (raw: unknown): Event.Any | undefined =>
-    events.typed(raw)
-      ? events.is(raw)
-        ? (raw as Event.Any)
-        : undefined
-      : undefined,
+    events.is(raw) ? raw : undefined,
   toResult: (event: Event.TestComplete | Event.TestSkipped): TestResult =>
     event.type === "test-complete"
       ? event
@@ -83,7 +80,7 @@ export const events = {
         },
 };
 
-export const createEventListenerServer = ({
+export const createEventListener = ({
   onEvent,
   timeout,
   onTimeout,
@@ -100,6 +97,13 @@ export const createEventListenerServer = ({
       if (event) onEvent(route, event, close);
     },
   });
+
+export type ReportServer = {
+  url: string;
+  paths: Promise<string[]>;
+  waitForComponent: (browser: string, path: string) => Promise<TestResult[]>;
+  close: () => void;
+};
 
 /**
  * A single server that handles discovery and all browser×component test events
@@ -122,15 +126,7 @@ export const createEventListenerServer = ({
  */
 export const startReportServer = async (
   timeout = 120_000,
-): Promise<{
-  url: string;
-  paths: Promise<string[]>;
-  waitForComponent: (
-    browser: string,
-    componentPath: string,
-  ) => Promise<TestResult[]>;
-  close: () => void;
-}> => {
+): Promise<ReportServer> => {
   let discovered = false;
   const paths = defer<string[]>();
 
@@ -159,14 +155,14 @@ export const startReportServer = async (
   };
 
   const discover = (event: Event.Any) => {
-    if (discovered || event.type !== "gallery-ready") return;
+    if (discovered || event.type !== "closet-ready") return;
     discovered = true;
     paths.resolve(event.paths);
   };
 
   const onEvent: Event.Handler = (route, event) => {
     if (route === "discover") return discover(event);
-    if (event.type === "gallery-ready") return;
+    if (event.type === "closet-ready") return;
 
     const { type, component } = event;
 
@@ -185,7 +181,7 @@ export const startReportServer = async (
     checkComplete(browser, component);
   };
 
-  const { url, close } = await createEventListenerServer({
+  const { url, close } = await createEventListener({
     onEvent,
     timeout,
     onTimeout: () => {
@@ -207,5 +203,3 @@ export const startReportServer = async (
     waitForComponent: (browser, component) => state(browser, component).promise,
   };
 };
-
-export type ReportServer = Awaited<ReturnType<typeof startReportServer>>;
