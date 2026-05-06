@@ -1,7 +1,7 @@
 <script lang="ts" module>
   import * as test from "@storybook/test";
   import { defer, accumulate } from "./utils";
-  import { createCapturer } from "./utils/capture";
+  import type { createCapturer } from "./utils/capture";
   import { PromiseQueue } from "./utils/promise-queue";
   import until from "./utils/until";
   import { createTestAbortMechanism, TestAborted } from "./utils/abort";
@@ -191,6 +191,7 @@
 
 <script lang="ts" generics="T extends Pocket">
   import { onMount } from "svelte";
+  import { reportables } from "./reporting";
 
   let {
     body,
@@ -268,45 +269,8 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
   onMount(async () => {
     if (!container) throw new Error("Container element not found");
 
-    const params = new URL(location.href).searchParams;
-    const reportServerUrl = params.get("reportServer") ?? undefined;
-    const testFilterSource = params.get("testFilter") ?? undefined;
-    const testFilter = testFilterSource
-      ? new RegExp(testFilterSource, "i")
-      : undefined;
-    const componentPath = params.get("component") ?? undefined;
-
-    // Pending capture promises — resolved URIs are bundled into the test-complete event.
-    const pendingCaptures = reportServerUrl
-      ? ([] as Promise<{ type: string; dataUri: string }>[])
-      : undefined;
-
-    const rawCapture = createCapturer(container);
-    const capture: typeof rawCapture = (type, options?) => {
-      const result = rawCapture(type, options as never);
-      if (
-        reportServerUrl &&
-        (type === "png" || type === "jpeg" || type === "svg")
-      ) {
-        const { uri } = result as { uri: Promise<string>; download: unknown };
-        pendingCaptures?.push(uri.then((dataUri) => ({ type, dataUri })));
-      }
-      return result;
-    };
-
-    const collectedNotes: string[] = [];
-    const note = (text: string) => {
-      if (reportServerUrl) collectedNotes.push(text);
-    };
-
-    const send = reportServerUrl
-      ? (event: object) =>
-          fetch(reportServerUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(event),
-          }).catch(() => {})
-      : undefined;
+    const { createCapturer, note, skip, complete, fail } = reportables();
+    const capture = createCapturer(container);
 
     const harness: TestHarness<T> = abort.proxy({
       ...test,
@@ -322,57 +286,14 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
     });
 
     gate = queue.add(mode, async () => {
-      // Skip tests that don't match the filter (name or id must be present to filter).
-      const testIdentifier = name ?? id;
-      if (testFilter && testIdentifier && !testFilter.test(testIdentifier)) {
-        if (send)
-          await send({
-            type: "test-skipped",
-            name,
-            id,
-            component: componentPath,
-          });
-        begin(() => {})(); // clear pending.abort without adding a live abort entry
-        return;
-      }
+      if (skip?.(name, id)) return begin(() => {})(); // clear pending.abort without adding a live abort entry
 
       const startedAt = Date.now();
       await body(harness)
         .then(
-          async () => {
-            if (send) {
-              const captures = await Promise.all(pendingCaptures ?? []);
-              await send({
-                type: "test-complete",
-                name,
-                id,
-                component: componentPath,
-                status: "passed",
-                durationMs: Date.now() - startedAt,
-                captures,
-                notes: collectedNotes,
-              });
-            }
-          },
+          () => complete?.(startedAt, name, id),
           async (e) => {
-            if (!(e instanceof TestAborted) && send) {
-              const captures = await Promise.all(pendingCaptures ?? []);
-              await send({
-                type: "test-complete",
-                name,
-                id,
-                component: componentPath,
-                status: "failed",
-                durationMs: Date.now() - startedAt,
-                error: {
-                  message: e?.message,
-                  stack: e?.stack,
-                  matcherResult: e?.matcherResult,
-                },
-                captures,
-                notes: collectedNotes,
-              });
-            }
+            if (!(e instanceof TestAborted)) fail?.(startedAt, e, name, id);
             error(e);
           },
         )

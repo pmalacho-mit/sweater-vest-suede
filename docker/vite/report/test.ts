@@ -1,12 +1,60 @@
 import { describe, test, expect } from "vitest";
 import { sessionSuite } from "../.harness/index.ts";
 import {
-  startDiscoveryServer,
-  startEventServer,
+  createEventListenerServer,
+  events,
   type TestResult,
 } from "../../../release/report/events.ts";
 import { renderReport } from "../../../release/report/html.ts";
 import { printReport } from "../../../release/report/print.ts";
+import { defer } from "../../../release/utils/index.ts";
+
+/**
+ * Starts a short-lived server that waits for a single `gallery-ready` event
+ * from Closet.svelte, then closes itself.
+ */
+const startDiscoveryServer = async (timeout = 30_000) => {
+  let resolved = false;
+  const paths = defer<string[]>();
+  const { url, close } = await createEventListenerServer({
+    timeout,
+    onEvent: (_, event, close) => {
+      if (event.type !== "gallery-ready" || resolved) return;
+      resolved = true;
+      close();
+      paths.resolve(event.paths);
+    },
+    onTimeout: () =>
+      paths.reject(
+        new Error("Discovery server timed out waiting for gallery-ready event"),
+      ),
+  });
+  return { url, paths, close };
+};
+
+/**
+ * Starts a server that collects `suite-ready` + test events for a single
+ * component page, then closes itself once all tests have reported in.
+ */
+const startEventServer = async (timeout = 60_000) => {
+  let total: number | undefined;
+  const results: TestResult[] = [];
+  const done = defer<TestResult[]>();
+  const { url, close } = await createEventListenerServer({
+    timeout,
+    onEvent: (_, event, close) => {
+      if (event.type === "suite-ready") total = event.totalTests;
+      else if (event.type === "test-complete" || event.type === "test-skipped")
+        results.push(events.toResult(event));
+
+      if (total !== undefined && results.length >= total)
+        (close(), done.resolve([...results]));
+    },
+    onTimeout: () =>
+      done.reject(new Error("Event server timed out waiting for test results")),
+  });
+  return { url, done, close };
+};
 
 describe("report", { concurrent: true }, () => {
   const { open } = sessionSuite(import.meta.dirname, "single");
@@ -109,7 +157,10 @@ describe("report", { concurrent: true }, () => {
     await fetch(`http://localhost:${port}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "gallery-ready", paths: ["/src/A.test.svelte", "/src/B.test.svelte"] }),
+      body: JSON.stringify({
+        type: "gallery-ready",
+        paths: ["/src/A.test.svelte", "/src/B.test.svelte"],
+      }),
     });
 
     const paths = await discovery.paths;
@@ -131,7 +182,10 @@ describe("report", { concurrent: true }, () => {
     await fetch(`http://localhost:${port}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "gallery-ready", paths: ["/src/C.test.svelte"] }),
+      body: JSON.stringify({
+        type: "gallery-ready",
+        paths: ["/src/C.test.svelte"],
+      }),
     });
 
     const paths = await discovery.paths;
@@ -154,7 +208,8 @@ describe("report", { concurrent: true }, () => {
       notes: [],
       error: {
         message: 'Expected "actual" to be "expected"',
-        stack: 'Error: Expected "actual" to be "expected"\n    at Object.<anonymous> (test.ts:5:1)',
+        stack:
+          'Error: Expected "actual" to be "expected"\n    at Object.<anonymous> (test.ts:5:1)',
         matcherResult: { pass: false, actual: "actual", expected: "expected" },
       },
     },
@@ -162,7 +217,9 @@ describe("report", { concurrent: true }, () => {
       name: "captures",
       status: "passed",
       durationMs: 55,
-      captures: [{ type: "png", dataUri: "data:image/png;base64,iVBORw0KGgo=" }],
+      captures: [
+        { type: "png", dataUri: "data:image/png;base64,iVBORw0KGgo=" },
+      ],
       notes: ["before screenshot", "after screenshot"],
     },
   ];
@@ -235,13 +292,22 @@ describe("report", { concurrent: true }, () => {
       { name: "b", status: "skipped", durationMs: 0, captures: [], notes: [] },
     ];
     const lines: string[] = [];
-    const write = (s: string) => { lines.push(s); return true; };
+    const write = (s: string) => {
+      lines.push(s);
+      return true;
+    };
 
     printReport(
       {
         generatedAt: new Date().toISOString(),
         galleryUrl: "http://localhost:5173",
-        browsers: [{ kind: "chromium", componentPath: "/src/Foo.test.svelte", results: withSkipped }],
+        browsers: [
+          {
+            kind: "chromium",
+            componentPath: "/src/Foo.test.svelte",
+            results: withSkipped,
+          },
+        ],
       },
       { write },
     );
