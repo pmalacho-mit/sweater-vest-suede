@@ -16,7 +16,20 @@ export type Deferred<T> = ReturnType<typeof defer<T>>;
 export type KeyLike = string | number | symbol;
 
 export const accumulate = <Key extends KeyLike, T>(keys: Key[], values: T[]) =>
-  keys.reduce((acc, curr, index) => {
-    (acc as any)[curr] = values[index];
-    return acc;
-  }, {} as Record<Key, T>);
+  keys.reduce(
+    (acc, curr, index) => {
+      (acc as any)[curr] = values[index];
+      return acc;
+    },
+    {} as Record<Key, T>,
+  );
+
+export const readableTimestamp = (date: Date = new Date()) => {
+  const pad = (value: number) => value.toString().padStart(2, "0");
+  return (
+    [date.getFullYear(), pad(date.getMonth() + 1), pad(date.getDate())].join(
+      "-",
+    ) +
+    `_at_${[pad(date.getHours()), pad(date.getMinutes()), pad(date.getSeconds())].join("-")}`
+  );
+};
