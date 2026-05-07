@@ -19,6 +19,11 @@ export namespace Event {
     {
       name?: string;
       id?: string;
+      index: number;
+      container: {
+        index: number;
+        category?: string;
+      };
       component?: string;
       status: "passed" | "failed";
       durationMs: number;
@@ -31,7 +36,13 @@ export namespace Event {
   /** Sent by Runner.svelte when a test is skipped because its name did not match `testFilter`. */
   export type TestSkipped = Typed<
     "test-skipped",
-    { name?: string; id?: string; component?: string }
+    {
+      name?: string;
+      id?: string;
+      index: number;
+      container: { index: number; category?: string };
+      component?: string;
+    }
   >;
 
   export type Any = GalleryReady | SuiteReady | TestComplete | TestSkipped;
@@ -48,6 +59,12 @@ export namespace Event {
 export type TestResult = {
   name?: string;
   id?: string;
+  /** Zero-based position of this test within its container. */
+  index: number;
+  /** The container this test belongs to. */
+  container: { index: number; category?: string };
+  /** The component file path (e.g. `/src/lib/Button.test.svelte`) this test was declared in. */
+  component?: string;
   status: "passed" | "failed" | "skipped";
   durationMs: number;
   error?: { message: string; stack?: string; matcherResult?: unknown };

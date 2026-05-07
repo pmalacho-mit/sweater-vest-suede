@@ -1,6 +1,5 @@
 import { describe, test, expect } from "vitest";
 import { sessionSuite, poll, catcher } from "../.harness/index.ts";
-import "./release/globals.d.ts";
 
 type Variables = {
   editMarker?: string;

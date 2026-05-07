@@ -6,6 +6,7 @@
   import until from "./utils/until";
   import { createTestAbortMechanism, TestAborted } from "./utils/abort";
   import { flushSync, type Snippet } from "svelte";
+  import type { Props as ContainerProps } from "./Container.svelte";
 
   export type Pocket = Record<string, any>;
 
@@ -135,7 +136,10 @@
   type Abort = () => void;
   type Complete = () => void;
   type Begin = (abort: Abort) => Complete;
-  export type Error = (e: any) => void;
+
+  export type Container = Pick<ContainerProps, "category"> & {
+    index: number;
+  };
 
   export const reset = () => {
     queue = new PromiseQueue();
@@ -187,6 +191,16 @@
     cleanup.add(unsubscribe);
     return deferred.promise;
   };
+
+  const error = (e: any) => {
+    console.group("❌ Test Failed");
+    console.error("Error:", e);
+    console.error("Message:", e?.message);
+    console.error("Name:", e?.name);
+    console.error("Stack:", e?.stack);
+    if (e?.matcherResult) console.error("Matcher Result:", e.matcherResult);
+    console.groupEnd();
+  };
 </script>
 
 <script lang="ts" generics="T extends Pocket">
@@ -196,16 +210,15 @@
   let {
     body,
     vest,
-    name,
-    id,
     mode = "parallel",
     manual = false,
     lazy = false,
     begin,
-    error,
+    ...signature
   }: Props<T> & {
+    index: number;
+    container: Container;
     begin: Begin;
-    error: Error;
   } = $props();
 
   let container = $state.raw<HTMLDivElement>();
@@ -285,12 +298,13 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
     });
 
     const run = async () => {
-      if (skip?.(name, id)) return begin(() => {})(); // clear pending.abort without adding a live abort entry
+      if (skip?.(signature)) return begin(() => {})(); // clear pending.abort without adding a live abort entry
 
       const startedAt = Date.now();
-      const fulfill = complete?.bind(null, startedAt, name, id);
+      const fulfill = complete?.bind(null, startedAt, signature);
       const reject = (e: any) => {
-        if (!(e instanceof TestAborted)) fail?.(startedAt, e, name, id);
+        if (e instanceof TestAborted) return;
+        fail?.(startedAt, signature, e);
         error(e);
       };
 
@@ -304,7 +318,7 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
   });
 </script>
 
-<div bind:this={container} style="height: 100%;" title={name}>
+<div bind:this={container} style="height: 100%;" title={signature.name}>
   {#if container && gate}
     {#await gate then}
       {#if !prevented && (!lazy || pocket)}

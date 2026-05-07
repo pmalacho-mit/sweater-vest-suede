@@ -38,6 +38,7 @@
 		"dockview-core": "^4.13.1",
 		"html-to-image": "^1.11.13",
 		"svelte": "^5.41.0",
+		"tsx": "^4.21.0",
 		"typescript": "^5.9.3"
 	}
 }

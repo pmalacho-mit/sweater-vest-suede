@@ -1,8 +1,11 @@
 import { writeFile } from "node:fs/promises";
-import { devcontainer } from "../suede/programmatic-docker-suede/devcontainer.js";
+import {
+  getDevcontainerIp,
+  devcontainerNetwork,
+} from "../suede/programmatic-docker-suede/devcontainer.js";
 import { container } from "../suede/programmatic-docker-suede";
 import {
-  buildAndRun,
+  buildAndRun as names,
   playwright,
   sessionWithTabs,
   type SessionWithTabs,
@@ -12,7 +15,6 @@ import { startReportServer, type ReportServer } from "./events.ts";
 import { renderReport, type ReportInput } from "./html.ts";
 import { printReport } from "./print.ts";
 import { isCliEntryPoint } from "../utils/node/index.ts";
-import { readableTimestamp } from "$release/utils/index.ts";
 
 export type { TestResult, Event } from "./events.ts";
 export type { ReportInput } from "./html.ts";
@@ -31,7 +33,7 @@ export type ReportOptions = {
 };
 
 export const defaults = {
-  galleryUrl: `http://${devcontainer.ip()}:5173`,
+  galleryUrl: `http://${getDevcontainerIp()}:5173`,
   browsers: ["chromium"],
   outputPath: "./fashion-show.html",
 } as const satisfies ReportOptions;
@@ -62,13 +64,9 @@ export type ReportSummary = {
   browsers: ReportInput["browsers"];
 };
 
-const namer = async () => {
-  const { Config } = await devcontainer.inspect();
-  const timestamp = readableTimestamp();
-  return {
-    container: (browser: Browser) => `${browser}-${Config.Image}`,
-    session: (browser: Browser) => `${browser}-sweater-vest-${timestamp}`,
-  };
+const names = {
+  container: (browser: Browser) => `sweater-vest-${browser}`,
+  session: (browser: Browser) => `sweater-vest-report-${browser}`, // should be more unique to project
 };
 
 export type SearchParam = "component" | "reportServer" | "testFilter";
@@ -113,19 +111,18 @@ export const generateReport = async (
   const sessions = new Map<Browser, SessionWithTabs>();
   let server: ReportServer | undefined;
 
-  const names = await namer();
-
   try {
-    const prepare = async (browser: Browser) => {
-      const name = names.container(browser);
-      await buildAndRun(browser, {
-        container: () => name,
-        network: await devcontainer.network(),
+    const network = await devcontainerNetwork();
+
+    const prepare = async (namer: Browser) => {
+      await names(namer, {
+        container: () => names.container(namer),
+        network,
         log: true,
         skipIfRunning: true,
       });
-      startedBrowsers.add(browser);
-      await playwright.ready(name);
+      startedBrowsers.add(namer);
+      await playwright.ready(names.container(namer));
     };
 
     await Promise.all(browsers.map(prepare));

@@ -1,4 +1,4 @@
-import type { ReportInput } from "./html.ts";
+import { componentLabel, type ReportInput } from "./html.ts";
 import type { TestResult } from "./events.ts";
 
 const ms = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(2)}s` : `${n}ms`);
@@ -72,7 +72,10 @@ export const printReport = (
         write(` ${red("FAIL")}  ${label}   ${dim(`(${breakdown}, ${ms(totalMs)})`)}\n`);
         for (const r of entry.results.filter((r) => r.status === "failed")) {
           const testName = r.name ?? r.id ?? "(unnamed)";
-          write(`       ${red("●")} ${testName}\n`);
+          const filePart = r.component ? componentLabel(r.component) + " › " : "";
+          const containerLabel = r.container.category ?? `container ${r.container.index + 1}`;
+          const location = dim(`[${filePart}${containerLabel} / test ${r.index + 1}]`);
+          write(`       ${red("●")} ${testName} ${location}\n`);
           if (r.error) write(`         ${dim(firstErrorLine(r.error))}\n`);
         }
       } else if (skipped === total) {
