@@ -1,4 +1,4 @@
-import type { TestResult } from "./events.ts";
+import type { TestResult } from "./events.js";
 
 export type ReportInput = {
   generatedAt: string;
@@ -57,6 +57,23 @@ const renderError = (error: NonNullable<TestResult["error"]>) => {
 </details>`;
 };
 
+/** Strips common path prefixes and the `.test.svelte` suffix to produce a readable label. */
+export const componentLabel = (componentPath: string): string => {
+  const withoutPrefix = componentPath
+    .replace(/^\/+/, "")
+    .replace(/^(src|lib|packages\/[^/]+\/src)\//, "");
+  return withoutPrefix.replace(/\.test\.svelte$/, "").replace(/\.svelte$/, "");
+};
+
+const renderLocation = (result: TestResult): string => {
+  const file = result.component ? escape(componentLabel(result.component)) : undefined;
+  const containerPart = result.container.category
+    ? escape(result.container.category)
+    : `container ${result.container.index + 1}`;
+  const position = `${containerPart} / test ${result.index + 1}`;
+  return file ? `${file} › ${position}` : position;
+};
+
 const renderTest = (result: TestResult) => {
   const title = result.name ?? result.id ?? "(unnamed)";
   return `<div style="border:1px solid #e5e7eb;border-radius:6px;padding:12px 16px;margin-bottom:8px">
@@ -65,25 +82,17 @@ const renderTest = (result: TestResult) => {
     <span style="font-weight:500;font-size:14px">${escape(title)}</span>
     <span style="margin-left:auto;color:#9ca3af;font-size:12px">${ms(result.durationMs)}</span>
   </div>
+  <div style="font-size:11px;color:#9ca3af;margin-top:3px">${renderLocation(result)}</div>
   ${result.error ? renderError(result.error) : ""}
   ${renderNotes(result.notes)}
   ${renderCaptures(result.captures)}
 </div>`;
 };
 
-// Derive a readable label from a component path, stripping common prefixes
-// and the .test.svelte suffix. Falls back to the basename if no known prefix matched.
-const componentLabel = (componentPath: string): string => {
-  // Strip leading /src/, /lib/, /packages/<name>/src/, etc. up to the first
-  // directory that looks like actual content (not a build artifact path).
-  const withoutPrefix = componentPath
-    .replace(/^\/+/, "")
-    .replace(/^(src|lib|packages\/[^/]+\/src)\//, "");
-  return withoutPrefix.replace(/\.test\.svelte$/, "").replace(/\.svelte$/, "");
-};
-
 const renderComponent = (entry: ReportInput["browsers"][number]) => {
-  const label = entry.componentPath ? componentLabel(entry.componentPath) : entry.kind;
+  const label = entry.componentPath
+    ? componentLabel(entry.componentPath)
+    : entry.kind;
 
   const passed = entry.results.filter((r) => r.status === "passed").length;
   const failed = entry.results.filter((r) => r.status === "failed").length;
@@ -147,10 +156,13 @@ export const renderReport = (input: ReportInput): string => {
 
   const sections = multipleBrowsers
     ? Object.entries(
-        input.browsers.reduce<Record<string, ReportInput["browsers"]>>((acc, entry) => {
-          (acc[entry.kind] ??= []).push(entry);
-          return acc;
-        }, {}),
+        input.browsers.reduce<Record<string, ReportInput["browsers"]>>(
+          (acc, entry) => {
+            (acc[entry.kind] ??= []).push(entry);
+            return acc;
+          },
+          {},
+        ),
       )
         .map(
           ([kind, entries]) =>

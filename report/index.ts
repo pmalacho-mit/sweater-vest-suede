@@ -62,13 +62,13 @@ export type ReportSummary = {
   browsers: ReportInput["browsers"];
 };
 
-const names = {
-  container: (
-    browser: Browser,
-    { Config: { Image } }: Awaited<ReturnType<typeof devcontainer.inspect>>,
-  ) => `${browser}-${Image}`,
-  session: (browser: Browser, timestamp: string) =>
-    `sweater-vest-report-${browser}-${timestamp}`,
+const namer = async () => {
+  const { Config } = await devcontainer.inspect();
+  const timestamp = readableTimestamp();
+  return {
+    container: (browser: Browser) => `${browser}-${Config.Image}`,
+    session: (browser: Browser) => `${browser}-sweater-vest-${timestamp}`,
+  };
 };
 
 export type SearchParam = "component" | "reportServer" | "testFilter";
@@ -112,31 +112,30 @@ export const generateReport = async (
   const startedBrowsers = new Set<Browser>();
   const sessions = new Map<Browser, SessionWithTabs>();
   let server: ReportServer | undefined;
-  const inspected = await devcontainer.inspect();
-  const timestamp = readableTimestamp();
+
+  const names = await namer();
 
   try {
     const prepare = async (browser: Browser) => {
+      const name = names.container(browser);
       await buildAndRun(browser, {
-        container: () => names.container(browser, inspected),
+        container: () => name,
         network: await devcontainer.network(),
         log: true,
         skipIfRunning: true,
       });
       startedBrowsers.add(browser);
-      await playwright.ready(names.container(browser, inspected));
+      await playwright.ready(name);
     };
 
     await Promise.all(browsers.map(prepare));
-
-    const inspected = await devcontainer.inspect();
 
     const session = async (browser: Browser) =>
       [
         browser,
         await sessionWithTabs(
-          names.container(browser, inspected),
-          names.session(browser, timestamp),
+          names.container(browser),
+          names.session(browser),
           browser,
         ),
       ] as const;
@@ -191,16 +190,13 @@ export const generateReport = async (
     await Promise.allSettled(
       browsers.map((browser) =>
         playwright
-          .close(
-            names.container(browser, inspected),
-            names.session(browser, timestamp),
-          )
+          .close(names.container(browser), names.session(browser))
           .catch(() => {}),
       ),
     );
     await Promise.allSettled(
       [...startedBrowsers].map((browser) =>
-        container.tryRemove(names.container(browser, inspected)),
+        container.tryRemove(names.container(browser)),
       ),
     );
   }

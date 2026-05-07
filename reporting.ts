@@ -1,5 +1,6 @@
 import type { SearchParam, Event } from "./report";
-import { createCapturer as rawCreateCapturer } from "./utils/capture";
+import { createCapturer as rawCreateCapturer } from "./utils/capture.js";
+import type { Props as RunnerProps, Container } from "./Runner.svelte";
 
 export const param = (key: SearchParam, url?: URL) =>
   (url ?? new URL(window.location.href)).searchParams.get(key) ?? undefined;
@@ -30,6 +31,11 @@ export const suiteReady = (totalTests: number) => {
     },
     url,
   );
+};
+
+type TestSignature = Pick<RunnerProps, "name" | "id"> & {
+  index: number;
+  container: Container;
 };
 
 export const reportables = () => {
@@ -73,12 +79,11 @@ export const reportables = () => {
 
   const component = param("component", url);
 
-  const complete = async (startedAt: number, name?: string, id?: string) =>
+  const complete = async (startedAt: number, signature: TestSignature) =>
     tryPost(
       {
+        ...signature,
         type: "test-complete",
-        name,
-        id,
         component,
         status: "passed",
         durationMs: Date.now() - startedAt,
@@ -90,15 +95,13 @@ export const reportables = () => {
 
   const fail = async (
     startedAt: number,
+    signature: TestSignature,
     error?: any,
-    name?: string,
-    id?: string,
   ) =>
     tryPost(
       {
+        ...signature,
         type: "test-complete",
-        name,
-        id,
         component,
         status: "failed",
         durationMs: Date.now() - startedAt,
@@ -118,12 +121,19 @@ export const reportables = () => {
     ? new RegExp(testFilterSource, "i")
     : undefined;
 
-  const skip = (name?: string, id?: string) => {
+  const skip = ({ name, id, index, container }: TestSignature) => {
     const testIdentifier = name ?? id;
+    // A test is skipped when testFilter is set and neither its name/id
+    // nor its container's category matches the pattern.
     const skipped =
-      testFilter && testIdentifier && !testFilter.test(testIdentifier);
+      testFilter &&
+      !(testIdentifier && testFilter.test(testIdentifier)) &&
+      !(container.category && testFilter.test(container.category));
     if (skipped)
-      tryPost({ type: "test-skipped", name, id, component }, endpoint);
+      tryPost(
+        { type: "test-skipped", name, id, index, container, component },
+        endpoint,
+      );
     return Boolean(skipped);
   };
 

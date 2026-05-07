@@ -5,7 +5,6 @@
   import type { Snippet } from "svelte";
   import { createContainerMap } from "./utils/container-map.js";
   import { suiteReady } from "./reporting.js";
-  import "./globals.d.ts";
 
   type ConfigProps = ContainerProps & {
     target?: HTMLElement;
@@ -42,9 +41,6 @@
       counts[counts.key(props)]--,
   };
 
-  window["__SWEATER_VEST__"] ??= {} as any;
-  window["__SWEATER_VEST__"].counts = counts;
-
   /* TODO: Determine if this is only true when test is modified and live-reload triggers */
   const testHasChanged = <T extends Pocket>(props: Props<T>, index: number) =>
     is("test", props) && index < 0;
@@ -67,6 +63,12 @@
     if (!url.searchParams.has(testHasChangedParam)) return;
     url.searchParams.delete(testHasChangedParam);
     window.history.replaceState({}, "", url.toString());
+  };
+
+  const testCount = () => {
+    let total = 0;
+    containers.each((container) => (total += container.count()));
+    return total;
   };
 </script>
 
@@ -97,11 +99,10 @@
     counts.subtract(props);
     const allMounted = counts.total() === 0;
     if (!allMounted) return;
-    const { total } = containers;
-    setTotal(total);
+    setTotal(containers.total);
+    suiteReady(testCount());
     containers.reset();
     next();
-    suiteReady(total);
   });
 </script>
 
