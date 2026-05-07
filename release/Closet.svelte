@@ -77,13 +77,24 @@
 </script>
 
 <script lang="ts">
-  import type { Component } from "svelte";
+  import { onMount, type Component } from "svelte";
+  import { tryPost, param, server } from "./reporting.js";
+  import { SvelteURLSearchParams } from "svelte/reactivity";
+
+  const params = new SvelteURLSearchParams();
 
   let { glob }: Props = $props();
 
-  const selected = $derived(
-    new URLSearchParams(window.location.search).get("component"),
-  );
+  onMount(() => {
+    const url = new URL(window.location.href);
+    const component = param("component", url);
+    if (component) return params.set("component", component);
+    const reportServer = server(url);
+    if (!reportServer) return;
+    tryPost({ type: "closet-ready", paths: Object.keys(glob) }, reportServer);
+  });
+
+  const selected = $derived(params.get("component"));
 
   const tests = $derived.by<Tree>(() => {
     const tree: Tree = {};
@@ -111,11 +122,12 @@
     return tree;
   });
 
-  function select(component: string): void {
+  const select = (component: string) => {
+    params.set("component", component);
     const url = new URL(window.location.href);
     url.searchParams.set("component", component);
-    window.location.href = url.toString();
-  }
+    window.history.pushState({}, "", url);
+  };
 
   const component = $derived.by(() => {
     if (!selected) return;

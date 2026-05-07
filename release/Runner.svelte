@@ -1,11 +1,12 @@
 <script lang="ts" module>
   import * as test from "@storybook/test";
   import { defer, accumulate } from "./utils";
-  import { createCapturer } from "./utils/capture";
+  import type { createCapturer } from "./utils/capture";
   import { PromiseQueue } from "./utils/promise-queue";
   import until from "./utils/until";
-  import { createTestAbortMechanism } from "./utils/abort";
+  import { createTestAbortMechanism, TestAborted } from "./utils/abort";
   import { flushSync, type Snippet } from "svelte";
+  import type { Props as ContainerProps } from "./Container.svelte";
 
   export type Pocket = Record<string, any>;
 
@@ -62,6 +63,13 @@
     withUserFocus: (
       fn: (userEvent: typeof test.userEvent) => Promise<void>,
     ) => Promise<void>;
+    /**
+     * Adds a free-form text annotation to this test's report card.
+     * Call it at any point in the test body to label a state transition or
+     * record a measurement. Annotations appear in call order in the report.
+     * No-op when not running under a report server.
+     */
+    note: (text: string) => void;
   } & Omit<typeof import("@storybook/test"), "userEvent">;
   /* pd: harness-docs */
 
@@ -128,7 +136,10 @@
   type Abort = () => void;
   type Complete = () => void;
   type Begin = (abort: Abort) => Complete;
-  export type Error = (e: any) => void;
+
+  export type Container = Pick<ContainerProps, "category"> & {
+    index: number;
+  };
 
   export const reset = () => {
     queue = new PromiseQueue();
@@ -180,23 +191,34 @@
     cleanup.add(unsubscribe);
     return deferred.promise;
   };
+
+  const error = (e: any) => {
+    console.group("❌ Test Failed");
+    console.error("Error:", e);
+    console.error("Message:", e?.message);
+    console.error("Name:", e?.name);
+    console.error("Stack:", e?.stack);
+    if (e?.matcherResult) console.error("Matcher Result:", e.matcherResult);
+    console.groupEnd();
+  };
 </script>
 
 <script lang="ts" generics="T extends Pocket">
   import { onMount } from "svelte";
+  import { reportables } from "./reporting";
 
   let {
     body,
     vest,
-    name,
     mode = "parallel",
     manual = false,
     lazy = false,
     begin,
-    error,
+    ...signature
   }: Props<T> & {
+    index: number;
+    container: Container;
     begin: Begin;
-    error: Error;
   } = $props();
 
   let container = $state.raw<HTMLDivElement>();
@@ -259,30 +281,44 @@ Make sure to call \`harness.preventRender()\` at the top of your body function b
 
   onMount(async () => {
     if (!container) throw new Error("Container element not found");
-    const capture = createCapturer(container);
+
+    const { createCapturer, note, skip, complete, fail } = reportables();
+
     const harness: TestHarness<T> = abort.proxy({
       ...test,
       container,
       set,
       preventRender,
-      capture,
       onAbort,
       definition,
       withUserFocus,
       delay,
+      note,
+      capture: createCapturer(container),
     });
 
-    gate = queue.add(mode, () =>
-      body(harness)
-        .catch(error)
-        .finally(begin(() => controller.abort("Test has been aborted"))),
-    ).start;
+    const run = async () => {
+      if (skip?.(signature)) return begin(() => {})(); // clear pending.abort without adding a live abort entry
 
+      const startedAt = Date.now();
+      const fulfill = complete?.bind(null, startedAt, signature);
+      const reject = (e: any) => {
+        if (e instanceof TestAborted) return;
+        fail?.(startedAt, signature, e);
+        error(e);
+      };
+
+      await body(harness)
+        .then(fulfill, reject)
+        .finally(begin(() => controller.abort("Test has been aborted")));
+    };
+
+    gate = queue.add(mode, run).start;
     queue.open();
   });
 </script>
 
-<div bind:this={container} style="height: 100%;" title={name}>
+<div bind:this={container} style="height: 100%;" title={signature.name}>
   {#if container && gate}
     {#await gate then}
       {#if !prevented && (!lazy || pocket)}

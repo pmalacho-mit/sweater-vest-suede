@@ -2,7 +2,7 @@ import { describe, test, expect } from "vitest";
 import { sessionSuite, poll, catcher } from "../.harness/index.ts";
 
 describe("gallery component", { concurrent: true }, () => {
-  const { open } = sessionSuite(import.meta.dirname, "gallery");
+  const { open } = sessionSuite(import.meta.dirname, "closet");
 
   const components = ["A", "B", "C"] as const;
 
