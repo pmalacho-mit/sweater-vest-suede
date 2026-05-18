@@ -13,6 +13,8 @@ export namespace Event {
     { totalTests: number; component?: string }
   >;
 
+  export type Artifact = { type: string; dataUri: string } | string;
+
   /** Sent by Runner.svelte when a test body resolves or rejects. */
   export type TestComplete = Typed<
     "test-complete",
@@ -24,12 +26,11 @@ export namespace Event {
         index: number;
         category?: string;
       };
-      component?: string;
+      component: string;
       status: "passed" | "failed";
       durationMs: number;
       error?: { message: string; stack?: string; matcherResult?: unknown };
-      captures: Array<{ type: string; dataUri: string }>;
-      notes: string[];
+      artifacts: Artifact[];
     }
   >;
 
@@ -41,7 +42,7 @@ export namespace Event {
       id?: string;
       index: number;
       container: { index: number; category?: string };
-      component?: string;
+      component: string;
     }
   >;
 
@@ -56,20 +57,8 @@ export namespace Event {
   ) => void;
 }
 
-export type TestResult = {
-  name?: string;
-  id?: string;
-  /** Zero-based position of this test within its container. */
-  index: number;
-  /** The container this test belongs to. */
-  container: { index: number; category?: string };
-  /** The component file path (e.g. `/src/lib/Button.test.svelte`) this test was declared in. */
-  component?: string;
+export type TestResult = Omit<Event.TestComplete, "type" | "status"> & {
   status: "passed" | "failed" | "skipped";
-  durationMs: number;
-  error?: { message: string; stack?: string; matcherResult?: unknown };
-  captures: Array<{ type: string; dataUri: string }>;
-  notes: string[];
 };
 
 export const events = {
@@ -92,8 +81,7 @@ export const events = {
           ...event,
           status: "skipped",
           durationMs: 0,
-          captures: [],
-          notes: [],
+          artifacts: [],
         },
 };
 
@@ -116,9 +104,17 @@ export const createEventListener = ({
   });
 
 export type ReportServer = {
+  /** Base URL of the server. */
   url: string;
+  /** Resolves with the full list of component paths when the first `closet-ready` event arrives. */
   paths: Promise<string[]>;
+  /**
+   * Returns a promise that resolves with all test results for a given (browser, componentPath) pair
+   * once the expected number of results (from `suite-ready`) have been received.
+   * Safe to call before or after events arrive.
+   */
   waitForComponent: (browser: string, path: string) => Promise<TestResult[]>;
+  /** Stops the server and rejects any still-pending `paths` and `waitForComponent` promises. */
   close: () => void;
 };
 

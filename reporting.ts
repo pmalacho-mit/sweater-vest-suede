@@ -48,9 +48,7 @@ export const reportables = () => {
       note: (_: string) => {}, // no-op
     };
 
-  const pendingCaptures = new Array<
-    Promise<{ type: string; dataUri: string }>
-  >();
+  const pending = new Array<Promise<Event.Artifact>>();
 
   const createCapturer: typeof rawCreateCapturer = (container) => {
     const rawCapture = rawCreateCapturer(container);
@@ -67,28 +65,29 @@ export const reportables = () => {
     return (type, options) => {
       const captured = rawCapture(type, options);
       if (reportable(type, captured))
-        pendingCaptures.push(
-          captured.uri.then((dataUri) => ({ type, dataUri })),
-        );
+        pending.push(captured.uri.then((dataUri) => ({ type, dataUri })));
       return captured;
     };
   };
 
-  const notes: string[] = [];
-  const note = (text: string) => notes.push(text);
+  const note = (text: string) => pending.push(Promise.resolve(text));
 
   const component = param("component", url);
+
+  if (!component)
+    throw new Error(
+      "Component name is required in the URL parameter when reportServer is specified",
+    );
 
   const complete = async (startedAt: number, signature: TestSignature) =>
     tryPost(
       {
         ...signature,
-        type: "test-complete",
         component,
+        type: "test-complete",
         status: "passed",
         durationMs: Date.now() - startedAt,
-        captures: await Promise.all(pendingCaptures),
-        notes,
+        artifacts: await Promise.all(pending),
       },
       endpoint,
     );
@@ -101,8 +100,8 @@ export const reportables = () => {
     tryPost(
       {
         ...signature,
-        type: "test-complete",
         component,
+        type: "test-complete",
         status: "failed",
         durationMs: Date.now() - startedAt,
         error: {
@@ -110,8 +109,7 @@ export const reportables = () => {
           stack: error?.stack,
           matcherResult: error?.matcherResult,
         },
-        captures: await Promise.all(pendingCaptures),
-        notes,
+        artifacts: await Promise.all(pending),
       },
       endpoint,
     );
@@ -121,19 +119,14 @@ export const reportables = () => {
     ? new RegExp(testFilterSource, "i")
     : undefined;
 
-  const skip = ({ name, id, index, container }: TestSignature) => {
-    const testIdentifier = name ?? id;
-    // A test is skipped when testFilter is set and neither its name/id
-    // nor its container's category matches the pattern.
-    const skipped =
-      testFilter &&
-      !(testIdentifier && testFilter.test(testIdentifier)) &&
-      !(container.category && testFilter.test(container.category));
+  const matches = (text: string | undefined) =>
+    text && testFilter && testFilter.test(text);
+
+  const skip = (signature: TestSignature) => {
+    const { name, id, container } = signature;
+    const skipped = matches(name ?? id) || matches(container.category);
     if (skipped)
-      tryPost(
-        { type: "test-skipped", name, id, index, container, component },
-        endpoint,
-      );
+      tryPost({ type: "test-skipped", component, ...signature }, endpoint);
     return Boolean(skipped);
   };
 

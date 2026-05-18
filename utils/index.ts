@@ -33,3 +33,9 @@ export const readableTimestamp = (date: Date = new Date()) => {
     `_at_${[pad(date.getHours()), pad(date.getMinutes()), pad(date.getSeconds())].join("-")}`
   );
 };
+
+export type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;
+
+export const sort = {
+  byIndex: <T extends { index: number }>(a: T, b: T) => a.index - b.index,
+};
