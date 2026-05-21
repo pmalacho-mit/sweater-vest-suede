@@ -37,7 +37,7 @@ export default defineConfig({
         test: {
           name: "server",
           environment: "node",
-          include: ["{src,docker}/**/*{test,spec}.{js,ts}"],
+          include: ["{src,containerized-tests}/**/*{test,spec}.{js,ts}"],
           exclude: ["src/**/*.svelte.{test,spec}.{js,ts}"],
         },
       },
