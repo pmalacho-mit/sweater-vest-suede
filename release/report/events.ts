@@ -4,10 +4,14 @@ import { createHttpListener } from "./server.js";
 export namespace Event {
   export type Typed<T extends string = string, V = {}> = { type: T } & V;
 
-  /** Sent by Closet.svelte on mount when `?reportServer=` is present and no `?component=` is set. */
+  /**
+   * Sent by Closet.svelte on mount when `?reportServer=` is present and no `?component=` is set.
+   */
   export type GalleryReady = Typed<"closet-ready", { paths: string[] }>;
 
-  /** Sent by Sweater.svelte once all `<Sweater>` instances on the page have mounted. */
+  /**
+   * Sent by Sweater.svelte once all `<Sweater>` instances on the page have mounted.
+   */
   export type SuiteReady = Typed<
     "suite-ready",
     { totalTests: number; component?: string }
@@ -15,7 +19,9 @@ export namespace Event {
 
   export type Artifact = { type: string; dataUri: string } | string;
 
-  /** Sent by Runner.svelte when a test body resolves or rejects. */
+  /**
+   * Sent by Runner.svelte when a test body resolves or rejects.
+   */
   export type TestComplete = Typed<
     "test-complete",
     {
@@ -35,7 +41,9 @@ export namespace Event {
     }
   >;
 
-  /** Sent by Runner.svelte when a test is skipped because its name did not match `testFilter`. */
+  /**
+   * Sent by Runner.svelte when a test is skipped because its name did not match `testFilter`.
+   */
   export type TestSkipped = Typed<
     "test-skipped",
     {
@@ -124,7 +132,7 @@ export type ReportServer = {
  * for a full multi-browser report run. Used by `generateReport` in production.
  *
  * Routing:
- *   POST /discover        ← `gallery-ready` from Closet.svelte (any browser)
+ *   POST /discover        ← `closet-ready` from Closet.svelte (any browser)
  *   POST /<browser>       ← `suite-ready` / `test-complete` / `test-skipped` events;
  *                           browser is identified by the URL path, component by the
  *                           `component` field in the event body.

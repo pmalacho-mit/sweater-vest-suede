@@ -1,57 +1,79 @@
-import { describe, test, expect } from "vitest";
-import { sessionSuite, poll, catcher } from "../.harness/index.ts";
-import {
-  createEventListener,
-  type TestResult,
-} from "../../../release/report/events.ts";
-import { renderReport } from "../../../release/report/html.ts";
+import { describe, test, beforeAll, afterAll, expect } from "vitest";
+import { sessionSuite } from "../.harness/index.ts";
+import { dockerode } from "../../../release/.suede/programmatic-docker-suede/index.ts";
+import devcontainer from "../../../release/.suede/programmatic-docker-suede/devcontainer.js";
+import { startReportServer } from "../../../release/report/events.ts";
+import { renderMarkdown } from "../../../release/report/markdown.ts";
 import { printReport } from "../../../release/report/print.ts";
-import { defer } from "../../../release/utils/index.ts";
-
-/**
- * Starts a short-lived server that waits for a single `gallery-ready` event
- * from Closet.svelte, then closes itself.
- */
-const startDiscoveryServer = async (timeout = 30_000) => {
-  let resolved = false;
-  const { promise: paths, resolve, reject } = defer<string[]>();
-  const { url, close } = await createEventListener({
-    timeout,
-    onEvent: (_, event, close) => {
-      if (event.type !== "closet-ready" || resolved) return;
-      resolved = true;
-      close();
-      resolve(event.paths);
-    },
-    onTimeout: () =>
-      reject(
-        new Error("Discovery server timed out waiting for gallery-ready event"),
-      ),
-  });
-  return { url, paths, close };
-};
-
+import type { Report } from "../../../release/report/index.ts";
 
 describe("report", { concurrent: true }, () => {
-  const { open } = sessionSuite(import.meta.dirname, "single");
+  const { open, config } = sessionSuite(import.meta.dirname, "closet");
 
-  // Opens the fixture page and waits for all tests to complete.
+  const COMPONENT = "/src/Component.test.svelte";
+
+  let devcontainerId: string;
+  let reportServerHostIp: string;
+
+  // The report server (running in the devcontainer process) binds to 0.0.0.0 but
+  // uses devcontainer.ip() to construct its URL. That IP is only reachable from
+  // containers sharing the devcontainer's network namespace — not from containers
+  // on a separate bridge network like vite-report-network.
   //
-  // The browser container sits on an isolated Docker network that cannot reach the
-  // devcontainer's IP, so HTTP events never arrive at a devcontainer-hosted server.
-  // reporting.ts populates window.__SWEATER_VEST__.report as a parallel accumulator
-  // alongside the HTTP posts, so we read results from there via evaluateOnTab instead.
-  const run = async (queryParams?: Record<string, string>) => {
-    const tab = await open({ reportServer: "http://localhost:19999", ...queryParams });
-    await poll(
-      catcher(() =>
-        tab.evaluate(() => window.__SWEATER_VEST__?.report?.done === true),
-      ),
-      { timeout: 30_000, interval: 500 },
-    );
-    const results = await tab.evaluate(
-      () => window.__SWEATER_VEST__.report?.results ?? [],
-    );
+  // Connecting the devcontainer to the test network gives it an additional IP on
+  // that subnet. The server (bound to 0.0.0.0) then accepts POST requests from
+  // the browser container at that IP.
+  beforeAll(async () => {
+    const info = await devcontainer.inspect();
+    devcontainerId = info.Id;
+
+    const network = dockerode.getNetwork(config.network);
+    await (network.connect as (opts: { Container: string }) => Promise<void>)({
+      Container: devcontainerId,
+    }).catch(() => {}); // ignore if already connected
+
+    const networkInfo = await network.inspect();
+    const containers = networkInfo.Containers ?? {};
+    const containerEntry =
+      containers[devcontainerId] ??
+      Object.values(containers).find((_, i) =>
+        Object.keys(containers)[i]?.startsWith(devcontainerId.slice(0, 12)),
+      );
+    reportServerHostIp = containerEntry?.IPv4Address?.split("/")[0] ?? "";
+
+    if (!reportServerHostIp)
+      throw new Error(
+        `Could not determine devcontainer IP on network ${config.network}`,
+      );
+  }, 30_000);
+
+  afterAll(async () => {
+    if (devcontainerId)
+      await (
+        dockerode.getNetwork(config.network).disconnect as (opts: {
+          Container: string;
+        }) => Promise<void>
+      )({ Container: devcontainerId }).catch(() => {});
+  });
+
+  // Opens the fixture page via the closet and collects results via the report server.
+  const run = async (extraParams?: Record<string, string>) => {
+    const server = await startReportServer(60_000);
+    server.paths.catch(() => {}); // suppress unhandled rejection — /discover is never hit here
+
+    // Use the devcontainer's IP on the test network, not server.url's devcontainer.ip()
+    // (which is only reachable from containers sharing the devcontainer's namespace).
+    const port = new URL(server.url).port;
+    const reportUrl = `http://${reportServerHostIp}:${port}/chromium`;
+
+    await open({
+      reportServer: reportUrl,
+      component: COMPONENT,
+      ...extraParams,
+    });
+
+    const results = await server.waitForComponent("chromium", COMPONENT);
+    server.close();
     return { results };
   };
 
@@ -70,11 +92,10 @@ describe("report", { concurrent: true }, () => {
     expect(passing!.status).toBe("passed");
     expect(passing!.error).toBeUndefined();
     expect(passing!.durationMs).toBeGreaterThanOrEqual(0);
-    expect(passing!.captures).toHaveLength(0);
-    expect(passing!.notes).toHaveLength(0);
+    expect(passing!.artifacts).toHaveLength(0);
   }, 90_000);
 
-  test("failing test has error message, stack, and matcherResult", async () => {
+  test("failing test has error message and stack", async () => {
     const { results } = await run();
     const failing = results.find((r) => r.name === "fails");
 
@@ -84,46 +105,52 @@ describe("report", { concurrent: true }, () => {
     expect(failing!.error!.message).toContain("expected");
     expect(typeof failing!.error!.stack).toBe("string");
     expect(failing!.error!.stack!.length).toBeGreaterThan(0);
-    // matcherResult is verified in the Node.js unit test using synthetic data;
-    // @storybook/test's matcherResult may not survive evaluateOnTab's JSON serialization.
+    // matcherResult is verified in Node.js unit tests using synthetic data;
+    // @storybook/test's matcherResult may not survive evaluateOnTab JSON serialization.
   }, 90_000);
 
-  test("capture is included in test-complete event as a data URI", async () => {
+  test("capture is included in artifacts as a data URI", async () => {
     const { results } = await run();
     const capturing = results.find((r) => r.name === "captures");
 
     expect(capturing).toBeDefined();
     expect(capturing!.status).toBe("passed");
-    expect(capturing!.captures).toHaveLength(1);
-    expect(capturing!.captures[0].type).toBe("png");
-    expect(capturing!.captures[0].dataUri).toMatch(/^data:image\/png;base64,/);
+
+    const pngArtifact = capturing!.artifacts.find(
+      (a): a is { type: string; dataUri: string } =>
+        typeof a !== "string" && (a as { type: string }).type === "png",
+    );
+    expect(pngArtifact).toBeDefined();
+    expect(pngArtifact!.dataUri).toMatch(/^data:image\/png;base64,/);
   }, 90_000);
 
-  test("notes are recorded in order", async () => {
+  test("notes appear as string artifacts in order around the capture", async () => {
     const { results } = await run();
     const capturing = results.find((r) => r.name === "captures");
 
-    expect(capturing!.notes).toEqual(["before screenshot", "after screenshot"]);
+    const stringArtifacts = capturing!.artifacts.filter(
+      (a) => typeof a === "string",
+    );
+    expect(stringArtifacts).toEqual(["before screenshot", "after screenshot"]);
   }, 90_000);
 
-  test("testFilter skips non-matching tests and records them as skipped", async () => {
-    // Only "passes" matches — "fails" and "captures" should be skipped.
-    const { results } = await run({ testFilter: "passes" });
+  test("testFilter skips matching tests and records them as skipped", async () => {
+    // testFilter is an exclusion regex: tests whose name matches are skipped.
+    // Skipping only "fails" leaves "passes" and "captures" to run normally.
+    const { results } = await run({ testFilter: "fails" });
 
     expect(results).toHaveLength(3);
 
-    const passing = results.find((r) => r.name === "passes");
-    expect(passing!.status).toBe("passed");
+    const skipped = results.find((r) => r.name === "fails");
+    expect(skipped!.status).toBe("skipped");
+    expect(skipped!.durationMs).toBe(0);
 
-    const skipped = results.filter((r) => r.status === "skipped");
-    expect(skipped).toHaveLength(2);
-    expect(skipped.every((r) => r.durationMs === 0)).toBe(true);
+    const ran = results.filter((r) => r.status !== "skipped");
+    expect(ran).toHaveLength(2);
   }, 90_000);
 
   test("intentional test failure does not prevent run from completing", async () => {
-    // Container.svelte intentionally calls console.error() for test failures, so
-    // the error count is never 0 — expectNoConsoleErrors() is not the right check.
-    // The real contract: even with a throwing test body, report.done becomes true,
+    // The real contract: even with a throwing test body, waitForComponent resolves,
     // meaning the failure was caught and did not hang the run.
     const { results } = await run();
     const failing = results.find((r) => r.name === "fails");
@@ -133,11 +160,11 @@ describe("report", { concurrent: true }, () => {
 
   // --- Node.js-only unit tests (no browser needed) ---
 
-  test("startDiscoveryServer resolves paths from a gallery-ready POST", async () => {
-    const discovery = await startDiscoveryServer(5_000);
-    const port = new URL(discovery.url).port;
+  test("startReportServer resolves paths from a closet-ready POST on /discover", async () => {
+    const server = await startReportServer(5_000);
+    const port = new URL(server.url).port;
 
-    await fetch(`http://localhost:${port}`, {
+    await fetch(`http://localhost:${port}/discover`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -146,23 +173,27 @@ describe("report", { concurrent: true }, () => {
       }),
     });
 
-    const paths = await discovery.paths;
+    const paths = await server.paths;
+    server.close();
     expect(paths).toEqual(["/src/A.test.svelte", "/src/B.test.svelte"]);
   });
 
-  test("startDiscoveryServer ignores unknown event types", async () => {
-    const discovery = await startDiscoveryServer(2_000);
-    const port = new URL(discovery.url).port;
+  test("startReportServer ignores closet-ready on non-discover routes", async () => {
+    const server = await startReportServer(5_000);
+    const port = new URL(server.url).port;
 
-    // Send an unknown event — should not resolve paths.
-    await fetch(`http://localhost:${port}`, {
+    // Correct event type but wrong route — should not resolve paths.
+    await fetch(`http://localhost:${port}/chromium`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "suite-ready", totalTests: 1 }),
+      body: JSON.stringify({
+        type: "closet-ready",
+        paths: ["/src/Wrong.test.svelte"],
+      }),
     });
 
-    // Now send the correct event.
-    await fetch(`http://localhost:${port}`, {
+    // Now the correct route.
+    await fetch(`http://localhost:${port}/discover`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -171,76 +202,161 @@ describe("report", { concurrent: true }, () => {
       }),
     });
 
-    const paths = await discovery.paths;
+    const paths = await server.paths;
+    server.close();
     expect(paths).toEqual(["/src/C.test.svelte"]);
   });
 
-  const syntheticResults: TestResult[] = [
-    {
-      name: "passes",
-      status: "passed",
-      durationMs: 12,
-      captures: [],
-      notes: [],
-    },
-    {
-      name: "fails",
-      status: "failed",
-      durationMs: 8,
-      captures: [],
-      notes: [],
-      error: {
-        message: 'Expected "actual" to be "expected"',
-        stack:
-          'Error: Expected "actual" to be "expected"\n    at Object.<anonymous> (test.ts:5:1)',
-        matcherResult: { pass: false, actual: "actual", expected: "expected" },
-      },
-    },
-    {
-      name: "captures",
-      status: "passed",
-      durationMs: 55,
-      captures: [
-        { type: "png", dataUri: "data:image/png;base64,iVBORw0KGgo=" },
-      ],
-      notes: ["before screenshot", "after screenshot"],
-    },
-  ];
+  test("startReportServer waitForComponent resolves when all results arrive", async () => {
+    const server = await startReportServer(5_000);
+    server.paths.catch(() => {});
+    const port = new URL(server.url).port;
+    const component = "/src/Test.test.svelte";
 
-  test("renderReport produces valid self-contained HTML", () => {
-    const html = renderReport({
-      generatedAt: new Date().toISOString(),
-      galleryUrl: "http://localhost:5173",
-      browsers: [{ kind: "chromium", results: syntheticResults }],
+    const resultPromise = server.waitForComponent("chromium", component);
+
+    const post = (body: object) =>
+      fetch(`http://localhost:${port}/chromium`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+    await post({ type: "suite-ready", totalTests: 2, component });
+    await post({
+      type: "test-complete",
+      name: "a",
+      index: 0,
+      container: { index: 0 },
+      component,
+      status: "passed",
+      durationMs: 10,
+      artifacts: [],
+    });
+    await post({
+      type: "test-skipped",
+      name: "b",
+      index: 1,
+      container: { index: 0 },
+      component,
     });
 
-    expect(html).toContain("<!DOCTYPE html>");
-    expect(html).toContain("</html>");
-    expect(html).toContain("2 passed");
-    expect(html).toContain("1 failed");
-    expect(html).toContain("passes");
-    expect(html).toContain("fails");
-    expect(html).toContain("captures");
-    // The error message is HTML-escaped inside the <summary> tag
-    expect(html).toContain('Expected &quot;actual&quot; to be &quot;expected&quot;');
-    expect(html).toContain("data:image/png;base64,iVBORw0KGgo=");
-    expect(html).toContain("<img");
-    expect(html).toContain("before screenshot");
-    // Self-contained: no external resource-loading URLs.
-    // The footer <a href="..."> is a legitimate navigation link, not a resource.
-    expect(html).not.toMatch(/src="https?:/);
-    expect(html).not.toMatch(/<link[^>]*href="https?:/);
+    const results = await resultPromise;
+    server.close();
+
+    expect(results).toHaveLength(2);
+    expect(results.find((r) => r.name === "a")?.status).toBe("passed");
+    expect(results.find((r) => r.name === "b")?.status).toBe("skipped");
   });
 
-  test("renderReport with empty results shows no-tests message", () => {
-    const html = renderReport({
+  // Synthetic render input shared by the renderMarkdown and printReport tests.
+  const syntheticInput: Report.RenderInput = {
+    generatedAt: new Date().toISOString(),
+    closet: "http://localhost:5173",
+    results: [
+      {
+        component: "/src/passes.test.svelte",
+        containers: [
+          {
+            index: 0,
+            tests: [
+              {
+                index: 0,
+                name: "passes",
+                runs: [
+                  {
+                    browser: "chromium",
+                    status: "passed",
+                    durationMs: 12,
+                    artifacts: [],
+                  },
+                ],
+              },
+              {
+                index: 2,
+                name: "captures",
+                runs: [
+                  {
+                    browser: "chromium",
+                    status: "passed",
+                    durationMs: 55,
+                    artifacts: [
+                      "before screenshot",
+                      {
+                        type: "png",
+                        dataUri: "data:image/png;base64,iVBORw0KGgo=",
+                      },
+                      "after screenshot",
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        component: "/src/fails.test.svelte",
+        containers: [
+          {
+            index: 0,
+            tests: [
+              {
+                index: 1,
+                name: "fails",
+                runs: [
+                  {
+                    browser: "chromium",
+                    status: "failed",
+                    durationMs: 8,
+                    artifacts: [],
+                    error: {
+                      message: 'Expected "actual" to be "expected"',
+                      stack:
+                        'Error: Expected "actual" to be "expected"\n    at Object.<anonymous> (test.ts:5:1)',
+                      matcherResult: {
+                        pass: false,
+                        actual: "actual",
+                        expected: "expected",
+                      },
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  test("renderMarkdown produces a valid markdown report", () => {
+    const md = renderMarkdown(syntheticInput);
+
+    expect(md).toContain("# Sweater Vest Report");
+    expect(md).toContain("2 passed");
+    expect(md).toContain("1 failed");
+    // Component labels derived from paths by stripping prefix and extension
+    expect(md).toContain("passes");
+    expect(md).toContain("fails");
+    expect(md).toContain("captures");
+    // Error message in the failures section
+    expect(md).toContain('Expected "actual"');
+    // Capture artifact rendered as markdown image
+    expect(md).toContain("data:image/png;base64,iVBORw0KGgo=");
+    // Note artifact rendered as bullet
+    expect(md).toContain("before screenshot");
+  });
+
+  test("renderMarkdown with empty results shows no-tests message", () => {
+    const md = renderMarkdown({
       generatedAt: new Date().toISOString(),
-      galleryUrl: "http://localhost:5173",
-      browsers: [],
+      closet: "http://localhost:5173",
+      results: [],
     });
 
-    expect(html).toContain("No tests were run");
-    expect(html).not.toContain("all passed");
+    expect(md).toContain("No tests were run");
+    expect(md).not.toContain("all passed");
   });
 
   test("printReport writes expected summary lines", () => {
@@ -250,66 +366,71 @@ describe("report", { concurrent: true }, () => {
       return true;
     };
 
-    // Split into two component entries so both PASS and FAIL lines are generated.
-    // A single entry with mixed results produces only a FAIL line.
-    printReport(
-      {
-        generatedAt: new Date().toISOString(),
-        galleryUrl: "http://localhost:5173",
-        browsers: [
-          {
-            kind: "chromium",
-            componentPath: "/src/passes.test.svelte",
-            results: [syntheticResults[0], syntheticResults[2]], // passes + captures
-          },
-          {
-            kind: "chromium",
-            componentPath: "/src/fails.test.svelte",
-            results: [syntheticResults[1]], // fails
-          },
-        ],
-      },
-      { outputPath: "./report.html", write },
-    );
+    // Two separate component entries so both PASS and FAIL lines are generated.
+    printReport(syntheticInput, { output: "./report.md", write });
 
     const output = lines.join("");
 
-    expect(output).toContain("PASS");   // first entry: 2 passing, 0 failing
-    expect(output).toContain("FAIL");   // second entry: 1 failing
-    expect(output).toContain("passes"); // label derived from componentPath
-    expect(output).toContain("fails");  // label + failing test name bullet
-    expect(output).toContain('Expected "actual"'); // error excerpt (plain text, not HTML)
+    expect(output).toContain("PASS"); // passes component: 2 passing, 0 failing
+    expect(output).toContain("FAIL"); // fails component: 1 failing
+    expect(output).toContain("passes"); // label derived from /src/passes.test.svelte
+    expect(output).toContain("fails"); // label + failing test name bullet
+    expect(output).toContain('Expected "actual"'); // error excerpt
     expect(output).toMatch(/2 passed/);
     expect(output).toMatch(/1 failed/);
     expect(output).toMatch(/3 total/);
-    expect(output).toContain("./report.html");
+    expect(output).toContain("./report.md");
   });
 
   test("printReport breakdown includes skipped count when present", () => {
-    const withSkipped: TestResult[] = [
-      { name: "a", status: "passed", durationMs: 5, captures: [], notes: [] },
-      { name: "b", status: "skipped", durationMs: 0, captures: [], notes: [] },
-    ];
+    const withSkipped: Report.RenderInput = {
+      generatedAt: new Date().toISOString(),
+      closet: "http://localhost:5173",
+      results: [
+        {
+          component: "/src/Foo.test.svelte",
+          containers: [
+            {
+              index: 0,
+              tests: [
+                {
+                  index: 0,
+                  name: "a",
+                  runs: [
+                    {
+                      browser: "chromium",
+                      status: "passed",
+                      durationMs: 5,
+                      artifacts: [],
+                    },
+                  ],
+                },
+                {
+                  index: 1,
+                  name: "b",
+                  runs: [
+                    {
+                      browser: "chromium",
+                      status: "skipped",
+                      durationMs: 0,
+                      artifacts: [],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
     const lines: string[] = [];
     const write = (s: string) => {
       lines.push(s);
       return true;
     };
 
-    printReport(
-      {
-        generatedAt: new Date().toISOString(),
-        galleryUrl: "http://localhost:5173",
-        browsers: [
-          {
-            kind: "chromium",
-            componentPath: "/src/Foo.test.svelte",
-            results: withSkipped,
-          },
-        ],
-      },
-      { write },
-    );
+    printReport(withSkipped, { write });
 
     const output = lines.join("");
     expect(output).toContain("PASS");
