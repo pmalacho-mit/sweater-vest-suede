@@ -119,7 +119,7 @@ export const buildViteImage = async ({
   const build = image.build(tag, root, {
     dockerfile,
     version: "2", // ensure BuildKit features are available (e.g. COPY --exclude)
-    include: ["docker/vite", "release"], // restrict build context for faster builds
+    include: ["containerized-tests/vite", "release"], // restrict build context for faster builds
     buildargs: { TEST_CASE, HARNESS },
   });
   for await (const chunk of build.chunks()) process.stdout.write(chunk.data);

@@ -1,6 +1,6 @@
 # Sweater Vest — Deep Dive for Maintainers
 
-This document is a technical reference for developers who need to understand, extend, or debug the sweater-vest-suede project. It covers the public library surface (the `release/` folder), the suede dependencies bundled with it, and the test infrastructure built in `docker/` and `src/`.
+This document is a technical reference for developers who need to understand, extend, or debug the sweater-vest-suede project. It covers the public library surface (the `release/` folder), the suede dependencies bundled with it, and the test infrastructure built in `containerized-tests/` and `src/`.
 
 ---
 
@@ -24,7 +24,7 @@ This document is a technical reference for developers who need to understand, ex
 8. [Test Infrastructure](#8-test-infrastructure)
    - [Vitest configuration](#vitest-configuration)
    - [Vite harness Docker image](#vite-harness-docker-image)
-   - [Test harness API (`docker/vite/.harness/index.ts`)](#test-harness-api)
+   - [Test harness API (`containerized-tests/vite/.harness/index.ts`)](#test-harness-api)
    - [Single-component tests](#single-component-tests)
    - [Closet tests](#closet-tests)
 9. [End-to-End Test Lifecycle](#9-end-to-end-test-lifecycle)
@@ -50,7 +50,7 @@ release/          ← Published package source (what consumers install)
 src/              ← Minimal SvelteKit app (dev scaffolding only)
   demo.spec.ts    ← Basic smoke test
 
-docker/           ← Docker-based integration test harness
+containerized-tests/           ← Docker-based integration test harness
   vite/
     .harness/     ← Shared harness: Dockerfile, Vitest helpers, base config, entry points
       base/       ← Shared Vite app skeleton (package.json, vite.config.ts, index.html)
@@ -126,18 +126,18 @@ The package has **no build step** — it is consumed directly from source by the
 
 #### `TestHarness<T>` — what `body` receives
 
-| Member                        | Description                                                                               |
-| ----------------------------- | ----------------------------------------------------------------------------------------- |
-| `set(pocket)`                 | Initialize/replace the pocket; triggers render if `lazy`.                                 |
-| `definition(...keys)`         | Wait for named pocket fields to become non-null (reactive via `$effect`).                 |
-| `preventRender()`             | Block render until the returned function is called. Must be called before any `await`.    |
-| `container`                   | The raw `HTMLElement` wrapping the vest snippet.                                          |
+| Member                        | Description                                                                                                                                                                                                 |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `set(pocket)`                 | Initialize/replace the pocket; triggers render if `lazy`.                                                                                                                                                   |
+| `definition(...keys)`         | Wait for named pocket fields to become non-null (reactive via `$effect`).                                                                                                                                   |
+| `preventRender()`             | Block render until the returned function is called. Must be called before any `await`.                                                                                                                      |
+| `container`                   | The raw `HTMLElement` wrapping the vest snippet.                                                                                                                                                            |
 | `capture(type, options?)`     | Screenshot/serialize the container. For `"png"`, `"jpeg"`, `"svg"`: returns `{ uri: Promise<string>, download(filename) }`. For `"blob"`, `"canvas"`, `"pixelData"`: returns the raw html-to-image promise. |
-| `delay(amount)`               | Sleep for `{ seconds }`, `{ milliseconds }`, `{ minutes }`, or `{ frames }`.              |
-| `withUserFocus(fn)`           | Serialize user interaction (click, type, etc.) through a shared queue.                    |
-| `onAbort(fn)`                 | Register a teardown callback for when the test is aborted.                                |
-| `note(text)`                  | Add a free-form annotation to this test's report card. No-op when no report server is active. |
-| All `@storybook/test` exports | `expect`, `vi`, etc. (except `userEvent` — use `withUserFocus` instead).                  |
+| `delay(amount)`               | Sleep for `{ seconds }`, `{ milliseconds }`, `{ minutes }`, or `{ frames }`.                                                                                                                                |
+| `withUserFocus(fn)`           | Serialize user interaction (click, type, etc.) through a shared queue.                                                                                                                                      |
+| `onAbort(fn)`                 | Register a teardown callback for when the test is aborted.                                                                                                                                                  |
+| `note(text)`                  | Add a free-form annotation to this test's report card. No-op when no report server is active.                                                                                                               |
+| All `@storybook/test` exports | `expect`, `vi`, etc. (except `userEvent` — use `withUserFocus` instead).                                                                                                                                    |
 
 ### Config (group) usage
 
@@ -236,7 +236,7 @@ See §3 for the consumer-facing API. Internally it:
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
 | `utils/index.ts`         | `defer<T>()`, `accumulate()`, `readableTimestamp()`, `Expand<T>`, `sort.byIndex`                                                      |
 | `utils/abort.ts`         | `createTestAbortMechanism()` — abort controller, `wrap`, `proxy`, `until`, `tryError`                                                 |
-| `utils/capture.ts`       | `createCapturer(root)` — typed wrapper around `html-to-image`; returns `{ uri, download }` for string-valued capture types           |
+| `utils/capture.ts`       | `createCapturer(root)` — typed wrapper around `html-to-image`; returns `{ uri, download }` for string-valued capture types            |
 | `utils/promise-queue.ts` | `PromiseQueue` — serial/parallel task scheduling with deferred start                                                                  |
 | `utils/until.ts`         | `nextFrame()`, `milliseconds(ms)` — simple timing primitives                                                                          |
 | `utils/container-map.ts` | `createContainerMap()` — Proxy that maps numeric indices to `Container` instances while also tracking Svelte context-based containers |
@@ -260,27 +260,27 @@ The queue does not start until `queue.open()` is called (done in `Runner.onMount
 
 ### Key files
 
-| File              | Purpose                                                                                                      |
-| ----------------- | ------------------------------------------------------------------------------------------------------------ |
-| `events.ts`       | `Event` namespace (typed event union), `TestResult`, `startReportServer()`, `ReportServer` type             |
-| `client.ts`       | Browser-side helpers: `param()`, `server()`, `tryPost()`, `suiteReady()`, `reportables()`                   |
-| `server.ts`       | `createHttpListener()` — raw Node.js HTTP server that reads POST bodies and dispatches to a handler callback |
-| `index.ts`        | `generateReport(options?)`, `Report` namespace, defaults, CLI entry point (via `typescript-cli-suede`)       |
-| `markdown.ts`     | `renderMarkdown(input)` — converts `Report.RenderInput` into a Markdown string                               |
-| `print.ts`        | `printReport(input, options)` — pretty-prints a summary to stdout                                            |
+| File          | Purpose                                                                                                      |
+| ------------- | ------------------------------------------------------------------------------------------------------------ |
+| `events.ts`   | `Event` namespace (typed event union), `TestResult`, `startReportServer()`, `ReportServer` type              |
+| `client.ts`   | Browser-side helpers: `param()`, `server()`, `tryPost()`, `suiteReady()`, `reportables()`                    |
+| `server.ts`   | `createHttpListener()` — raw Node.js HTTP server that reads POST bodies and dispatches to a handler callback |
+| `index.ts`    | `generateReport(options?)`, `Report` namespace, defaults, CLI entry point (via `typescript-cli-suede`)       |
+| `markdown.ts` | `renderMarkdown(input)` — converts `Report.RenderInput` into a Markdown string                               |
+| `print.ts`    | `printReport(input, options)` — pretty-prints a summary to stdout                                            |
 
 ### `generateReport(options?)`
 
 The main entry point for programmatic report generation. Options:
 
-| Option      | Default                           | Description                                              |
-| ----------- | --------------------------------- | -------------------------------------------------------- |
-| `server`    | `http://<devcontainer-ip>:5173`   | URL of the running Vite dev server.                      |
-| `closet`    | `"/"`                             | Path on `server` where `Closet.svelte` is rendered.      |
-| `browsers`  | `["chromium"]`                    | Which browsers to run.                                   |
-| `output`    | `"./fashion-show.md"`             | Path to write the Markdown report (empty string to skip).|
-| `component` | `undefined`                       | Regex filter — only open matching component paths.       |
-| `test`      | `undefined`                       | Regex filter — only run tests with matching name or id.  |
+| Option      | Default                         | Description                                               |
+| ----------- | ------------------------------- | --------------------------------------------------------- |
+| `server`    | `http://<devcontainer-ip>:5173` | URL of the running Vite dev server.                       |
+| `closet`    | `"/"`                           | Path on `server` where `Closet.svelte` is rendered.       |
+| `browsers`  | `["chromium"]`                  | Which browsers to run.                                    |
+| `output`    | `"./fashion-show.md"`           | Path to write the Markdown report (empty string to skip). |
+| `component` | `undefined`                     | Regex filter — only open matching component paths.        |
+| `test`      | `undefined`                     | Regex filter — only run tests with matching name or id.   |
 
 `generateReport` builds or reuses browser containers (one per browser), opens a playwright session, discovers components via the Closet, then runs each `(component, browser)` pair. It posts `?reportServer=<url>&component=<path>` URLs to the browser and collects structured `TestResult` objects. On completion it writes the Markdown file and returns a `Report.Result.Summary`.
 
@@ -363,7 +363,7 @@ Helpers to detect the running devcontainer and obtain its network string:
 ```ts
 import devcontainer from "...";
 const network = await devcontainer.network(); // "container:<id>"
-const ip = devcontainer.ip();                  // non-loopback IP
+const ip = devcontainer.ip(); // non-loopback IP
 const { Config } = await devcontainer.inspect();
 ```
 
@@ -383,7 +383,7 @@ import { buildAndRun, playwright, sessionWithTabs, browsers } from "...";
 
 #### `buildAndRun(browser, options?)`
 
-Builds the browser container image from `docker/` (inside this suede) and starts it. Options:
+Builds the browser container image from `containerized-tests/` (inside this suede) and starts it. Options:
 
 | Option          | Description                                                     |
 | --------------- | --------------------------------------------------------------- |
@@ -450,7 +450,11 @@ import { cli } from "...";
 if (cli.entry(import.meta.url)) {
   const { server, browser, output } = cli(
     "Description of the script.",
-    cli.flag(["server", "s"], "URL of the dev server.", "http://localhost:5173"),
+    cli.flag(
+      ["server", "s"],
+      "URL of the dev server.",
+      "http://localhost:5173",
+    ),
     cli.flags(["browser", "b"], "Browser(s) to use.", browsers, ["chromium"]),
     cli.flag(["output", "o"], "Output path."),
   );
@@ -458,12 +462,12 @@ if (cli.entry(import.meta.url)) {
 }
 ```
 
-| Export         | Description                                                              |
-| -------------- | ------------------------------------------------------------------------ |
-| `cli(...)`     | Parse `process.argv`, apply defaults, return typed result object.        |
-| `cli.flag`     | Define a single-value flag (string or number) with optional shorthand.   |
-| `cli.flags`    | Define a multi-value (`multiple: true`) flag with an allowed-values set. |
-| `cli.entry`    | Returns `true` when the current file is the process entry point.         |
+| Export      | Description                                                              |
+| ----------- | ------------------------------------------------------------------------ |
+| `cli(...)`  | Parse `process.argv`, apply defaults, return typed result object.        |
+| `cli.flag`  | Define a single-value flag (string or number) with optional shorthand.   |
+| `cli.flags` | Define a multi-value (`multiple: true`) flag with an allowed-values set. |
+| `cli.entry` | Returns `true` when the current file is the process entry point.         |
 
 The result object supports positional argument access via numeric indices (`result[0]`) and iteration. Passing `--help` / `-h` prints usage and exits.
 
@@ -480,7 +484,7 @@ Tests are run with Vitest. There are two Vitest projects defined in `vite.config
 | `client` | `browser` (Playwright/Chromium headless) | `src/**/*.svelte.{test,spec}.{js,ts}`                                   |
 | `server` | `node`                                   | `{src,docker}/**/*{test,spec}.{js,ts}` (excluding svelte browser tests) |
 
-The Docker integration tests (`docker/vite/*/test.ts`) run in the **server** project — they are plain Node.js programs that orchestrate Docker containers and drive a Playwright browser.
+The Docker integration tests (`containerized-tests/vite/*/test.ts`) run in the **server** project — they are plain Node.js programs that orchestrate Docker containers and drive a Playwright browser.
 
 Run all tests:
 
@@ -491,40 +495,40 @@ npm test
 Run a specific test directory:
 
 ```sh
-npm run test docker/vite/closet/
+npm run test containerized-tests/vite/closet/
 ```
 
 ---
 
 ### Vite harness Docker image
 
-`docker/vite/.harness/Dockerfile`
+`containerized-tests/vite/.harness/Dockerfile`
 
 A single Dockerfile builds all test cases via two `ARG`s:
 
-- `TEST_CASE` — the name of the subdirectory under `docker/vite/` containing the component-under-test (e.g. `closet`, `live-reload`).
+- `TEST_CASE` — the name of the subdirectory under `containerized-tests/vite/` containing the component-under-test (e.g. `closet`, `live-reload`).
 - `HARNESS` — either `single` or `closet`, selecting which entry-point file from `.harness/` to use (`single.ts` or `closet.ts`).
 
 **Layer structure:**
 
 ```
 FROM node:22-bookworm-slim
-COPY docker/vite/.harness/base/package.json → /app/package.json
+COPY containerized-tests/vite/.harness/base/package.json → /app/package.json
 RUN npm install (BuildKit npm cache mount at /root/.npm)
-COPY docker/vite/.harness/base/ → /app/
-COPY docker/vite/.harness/${HARNESS}.ts → /app/src/main.ts
-COPY docker/vite/${TEST_CASE}/ → /app/src/  (excluding *.test.ts files)
+COPY containerized-tests/vite/.harness/base/ → /app/
+COPY containerized-tests/vite/.harness/${HARNESS}.ts → /app/src/main.ts
+COPY containerized-tests/vite/${TEST_CASE}/ → /app/src/  (excluding *.test.ts files)
 COPY release/ → /app/src/release/
 CMD npm run dev -- --host 0.0.0.0 --port 5173 --strictPort
 ```
 
-The image is built using BuildKit (`version: "2"` in `image.build`) with the context restricted to `["docker/vite", "release"]` to minimize tar overhead. The `COPY --exclude` flags drop `*.test.ts` files and the `release/` directory from the test-case layer (which is populated separately), avoiding stale artefacts.
+The image is built using BuildKit (`version: "2"` in `image.build`) with the context restricted to `["containerized-tests/vite", "release"]` to minimize tar overhead. The `COPY --exclude` flags drop `*.test.ts` files and the `release/` directory from the test-case layer (which is populated separately), avoiding stale artefacts.
 
 ---
 
 ### Test harness API
 
-`docker/vite/.harness/index.ts`
+`containerized-tests/vite/.harness/index.ts`
 
 This module is imported by every `test.ts` file. It provides:
 
@@ -548,11 +552,11 @@ The test case name is derived from `basename(import.meta.dirname)`, so the conta
 
 Returns:
 
-| Member                       | Description                                                                              |
-| ---------------------------- | ---------------------------------------------------------------------------------------- |
-| `config`                     | Typed name constants for network, containers, URLs (from `configure()`).                 |
-| `open(queryParams?)`         | Open a new browser tab at the Vite URL (with optional query params). See below.          |
-| `edit(file, sedExpr)`        | Run `sed -i <sedExpr>` on `/app/src/<file>` inside the Vite container.                   |
+| Member                                 | Description                                                                      |
+| -------------------------------------- | -------------------------------------------------------------------------------- |
+| `config`                               | Typed name constants for network, containers, URLs (from `configure()`).         |
+| `open(queryParams?)`                   | Open a new browser tab at the Vite URL (with optional query params). See below.  |
+| `edit(file, sedExpr)`                  | Run `sed -i <sedExpr>` on `/app/src/<file>` inside the Vite container.           |
 | `prependToSvelteModule(file, content)` | Insert `content` as the first line inside the `<script lang="ts" module>` block. |
 
 #### `open(queryParams?)`
@@ -596,7 +600,7 @@ Lower-level helpers exposed for test cases that need fine-grained control over t
 
 ### Single-component tests
 
-`docker/vite/.harness/single.ts`
+`containerized-tests/vite/.harness/single.ts`
 
 Entry point for testing a single Svelte component in isolation. Mounts a `Component.test.svelte` file directly and runs its `<Sweater body={...}>` test(s). The test file is placed at `/app/src/` by the Dockerfile (as `Component.test.svelte`). The base Vite config resolves `release/` from `/app/src/release/`.
 
@@ -604,17 +608,17 @@ Entry point for testing a single Svelte component in isolation. Mounts a `Compon
 
 ### Closet tests
 
-`docker/vite/.harness/closet.ts`
+`containerized-tests/vite/.harness/closet.ts`
 
 Entry point for the closet gallery harness. It mounts `Closet.svelte` (from `release/`) and passes it the result of:
 
 ```ts
-import.meta.glob("/src/**/*.test.svelte")
+import.meta.glob("/src/**/*.test.svelte");
 ```
 
 (Note the required leading `/` — patterns without it are relative to the file, not the project root.)
 
-`docker/vite/closet/test.ts` tests this harness end-to-end. It verifies:
+`containerized-tests/vite/closet/test.ts` tests this harness end-to-end. It verifies:
 
 - All expected links appear in the gallery UI.
 - Clicking a link updates the URL and renders the component's output.
@@ -625,11 +629,11 @@ The test fixtures (`A.test.svelte`, `B.test.svelte`, `C.test.svelte`) each rende
 
 ## 9. End-to-End Test Lifecycle
 
-A full test run for e.g. `docker/vite/closet/` looks like this:
+A full test run for e.g. `containerized-tests/vite/closet/` looks like this:
 
 ```
 Vitest (server project)
-  └─ docker/vite/closet/test.ts
+  └─ containerized-tests/vite/closet/test.ts
        └─ describe("gallery component")
             └─ beforeAll [sessionSuite]
                  1. docker.tryCreateNetwork("vite-closet-network")
@@ -666,9 +670,9 @@ Vitest (server project)
 
 **`import.meta.glob` requires a leading `/`.** In Vite, glob patterns without a leading `/` are relative to the file, not the project root. The closet harness `main.ts` must use `/src/**/*.test.svelte` (absolute from root).
 
-**BuildKit is required for the Vite harness Dockerfile.** Pass `version: "2"` to `image.build` to enable it. The npm cache mount (`--mount=type=cache,target=/root/.npm`) and `COPY --exclude` directives only work with BuildKit. Do **not** add a `# syntax=docker/dockerfile:1.7` frontend directive — it causes Dockerode's session to fail.
+**BuildKit is required for the Vite harness Dockerfile.** Pass `version: "2"` to `image.build` to enable it. The npm cache mount (`--mount=type=cache,target=/root/.npm`) and `COPY --exclude` directives only work with BuildKit. Do **not** add a `# syntax=containerized-tests/dockerfile:1.7` frontend directive — it causes Dockerode's session to fail.
 
-**Context restriction in `image.build`.** The `include: ["docker/vite", "release"]` option prevents dockerode from tarring the entire repo. Without it, the build context transfer alone can take several seconds.
+**Context restriction in `image.build`.** The `include: ["containerized-tests/vite", "release"]` option prevents dockerode from tarring the entire repo. Without it, the build context transfer alone can take several seconds.
 
 **`PromiseQueue` vs `userFocusQueue`.** There are two queues. The main `queue` (per-group, reset on live-reload) schedules test bodies. The `userFocusQueue` (global, always open) serializes `userEvent` calls across all tests to prevent synthetic event races in the browser.
 

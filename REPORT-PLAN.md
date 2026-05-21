@@ -80,20 +80,20 @@ type SuiteReadyEvent = {
 // Sent by Runner.svelte when a test body resolves or rejects.
 type TestCompleteEvent = {
   type: "test-complete";
-  name?: string;          // from the `name` prop on <Sweater>
-  id?: string;            // from the `id` prop on <Sweater>
+  name?: string; // from the `name` prop on <Sweater>
+  id?: string; // from the `id` prop on <Sweater>
   status: "passed" | "failed";
   durationMs: number;
   error?: {
     message: string;
     stack?: string;
-    matcherResult?: unknown;   // from @storybook/test matchers
+    matcherResult?: unknown; // from @storybook/test matchers
   };
   captures: Array<{
     type: "png" | "jpeg" | "svg";
-    dataUri: string;           // base64 data URI
+    dataUri: string; // base64 data URI
   }>;
-  notes: string[];             // from harness.note() calls
+  notes: string[]; // from harness.note() calls
 };
 
 // Sent by Runner.svelte when a test is skipped due to testFilter not matching.
@@ -163,7 +163,10 @@ const pendingCaptures: Promise<{ type: string; dataUri: string }>[] = [];
 
 const capture: typeof rawCapture = (type, options?) => {
   const result = rawCapture(type, options as never);
-  if (reportServerUrl && (type === "png" || type === "jpeg" || type === "svg")) {
+  if (
+    reportServerUrl &&
+    (type === "png" || type === "jpeg" || type === "svg")
+  ) {
     const { uri } = result as { uri: Promise<string>; download: unknown };
     pendingCaptures.push(uri.then((dataUri) => ({ type, dataUri })));
   }
@@ -183,8 +186,11 @@ const note = (text: string) => {
 **Check `testFilter` and skip non-matching tests:**
 
 ```ts
-const testFilterSource = new URL(location.href).searchParams.get("testFilter") ?? undefined;
-const testFilter = testFilterSource ? new RegExp(testFilterSource, "i") : undefined;
+const testFilterSource =
+  new URL(location.href).searchParams.get("testFilter") ?? undefined;
+const testFilter = testFilterSource
+  ? new RegExp(testFilterSource, "i")
+  : undefined;
 ```
 
 If `testFilter` is set and the test's `name` (or `id`) does not match, the test body is not run. `begin` is still called with a no-op to clear `Container`'s `pending.abort` state, and a `test-skipped` event is sent so the server's total count is satisfied:
@@ -206,11 +212,13 @@ Tests without a `name` or `id` are always run when `testFilter` is active (they 
 **Define `send` and replace the existing `.catch(error)` chain:**
 
 The existing chain is:
+
 ```ts
 body(harness).catch(error).finally(begin(…))
 ```
 
 Replace with:
+
 ```ts
 const startedAt = Date.now();
 
@@ -230,13 +238,34 @@ await body(harness)
     async () => {
       if (send) {
         const captures = await Promise.all(pendingCaptures);
-        await send({ type: "test-complete", name, id, status: "passed", durationMs: Date.now() - startedAt, captures, notes: collectedNotes });
+        await send({
+          type: "test-complete",
+          name,
+          id,
+          status: "passed",
+          durationMs: Date.now() - startedAt,
+          captures,
+          notes: collectedNotes,
+        });
       }
     },
     async (e) => {
       if (!(e instanceof TestAborted) && send) {
         const captures = await Promise.all(pendingCaptures);
-        await send({ type: "test-complete", name, id, status: "failed", durationMs: Date.now() - startedAt, error: { message: e?.message, stack: e?.stack, matcherResult: e?.matcherResult }, captures, notes: collectedNotes });
+        await send({
+          type: "test-complete",
+          name,
+          id,
+          status: "failed",
+          durationMs: Date.now() - startedAt,
+          error: {
+            message: e?.message,
+            stack: e?.stack,
+            matcherResult: e?.matcherResult,
+          },
+          captures,
+          notes: collectedNotes,
+        });
       }
       error(e); // original Container error handler still called
     },
@@ -247,8 +276,20 @@ await body(harness)
 The `.then(onFulfilled, onRejected)` form is used instead of `.then().catch()` so that a failure in `onFulfilled` does not feed into `onRejected`. The `error(e)` call in `onRejected` preserves the existing console-logging behaviour.
 
 Add `note` to the harness object passed to `body`:
+
 ```ts
-const harness = abort.proxy({ ...test, container, set, preventRender, capture, onAbort, definition, withUserFocus, delay, note });
+const harness = abort.proxy({
+  ...test,
+  container,
+  set,
+  preventRender,
+  capture,
+  onAbort,
+  definition,
+  withUserFocus,
+  delay,
+  note,
+});
 ```
 
 **Total additions to `Runner.svelte`: ~25 lines**, all behind `if (reportServerUrl)` guards.
@@ -460,6 +501,7 @@ export const renderReport = (input: ReportInput): string
 ```
 
 Output: a self-contained HTML string with:
+
 - Summary bar: total, passed, failed, total duration
 - Per-browser section (collapsed if only one browser)
 - Per-test card: status badge, name, duration, error block (`<details>`), notes list, inline `<img>` captures
@@ -477,6 +519,7 @@ export const printReport = (
 ```
 
 Format:
+
 ```
 sweater-vest report
 ─────────────────────────────────────────────
@@ -542,6 +585,7 @@ The CLI entry point guard uses `fileURLToPath(import.meta.url) === process.argv[
 3. **Open playwright sessions** via `sessionWithTabs` for each browser.
 
 4. **For each browser, receive component paths from Closet.svelte:**
+
    ```ts
    const discovery = await startDiscoveryServer();
    const discoveryTabUrl = new URL(options.galleryUrl!);
@@ -554,9 +598,11 @@ The CLI entry point guard uses `fileURLToPath(import.meta.url) === process.argv[
      ? allPaths.filter((p) => componentPattern.test(p))
      : allPaths;
    ```
+
    No DOM scraping, no polling for buttons — Closet.svelte pushes the paths.
 
 5. **Open all filtered component tabs in parallel**, one event server per component:
+
    ```ts
    const componentResults = await Promise.all(
      paths.map(async (componentPath) => {
@@ -571,6 +617,7 @@ The CLI entry point guard uses `fileURLToPath(import.meta.url) === process.argv[
      }),
    );
    ```
+
    All component tabs run simultaneously. `server.done` resolves when `suite-ready` plus all `test-complete`/`test-skipped` events for that component have been received.
 
    Note: when a component tab opens with `?component=<path>`, Closet.svelte also fires its `onMount` again and would POST another `gallery-ready` to the `reportServer` URL. Since the component tabs use per-component servers (not the discovery server), this event arrives at an active event server which simply ignores unknown event types — no interference.
@@ -583,13 +630,13 @@ The CLI entry point guard uses `fileURLToPath(import.meta.url) === process.argv[
 
 ---
 
-## `docker/vite/report/` Test Plan
+## `containerized-tests/vite/report/` Test Plan
 
 All tests run under the `single` Vite harness in the Vitest `server` project. The event server replaces all `evaluateOnTab`-based polling in the result assertions.
 
 ---
 
-### Fixture: `docker/vite/report/Component.test.svelte` (new)
+### Fixture: `containerized-tests/vite/report/Component.test.svelte` (new)
 
 ```svelte
 <script lang="ts">
@@ -635,14 +682,17 @@ All tests run under the `single` Vite harness in the Vitest `server` project. Th
 
 ---
 
-### Test Suite: `docker/vite/report/test.ts` (new)
+### Test Suite: `containerized-tests/vite/report/test.ts` (new)
 
 **Setup:**
 
 ```ts
 import { describe, test, expect } from "vitest";
 import { sessionSuite } from "../.harness/index.ts";
-import { startEventServer, type TestResult } from "../../../release/utils/report-events.ts";
+import {
+  startEventServer,
+  type TestResult,
+} from "../../../release/utils/report-events.ts";
 import { renderReport } from "../../../release/utils/report-html.ts";
 import { printReport } from "../../../release/utils/report-print.ts";
 
@@ -777,7 +827,13 @@ Confirms that the intentional `expect` failure in the `"fails"` test is caught b
 ```ts
 test("renderReport produces valid self-contained HTML", () => {
   const results: TestResult[] = [
-    { name: "passes", status: "passed", durationMs: 12, captures: [], notes: [] },
+    {
+      name: "passes",
+      status: "passed",
+      durationMs: 12,
+      captures: [],
+      notes: [],
+    },
     {
       name: "fails",
       status: "failed",
@@ -794,7 +850,9 @@ test("renderReport produces valid self-contained HTML", () => {
       name: "captures",
       status: "passed",
       durationMs: 55,
-      captures: [{ type: "png", dataUri: "data:image/png;base64,iVBORw0KGgo=" }],
+      captures: [
+        { type: "png", dataUri: "data:image/png;base64,iVBORw0KGgo=" },
+      ],
       notes: ["before screenshot", "after screenshot"],
     },
   ];
@@ -829,13 +887,23 @@ test("renderReport produces valid self-contained HTML", () => {
 ```ts
 test("printReport writes expected summary to stdout", () => {
   const lines: string[] = [];
-  const write = (s: string) => { lines.push(s); return true; };
+  const write = (s: string) => {
+    lines.push(s);
+    return true;
+  };
 
   printReport(
     {
       generatedAt: new Date().toISOString(),
       galleryUrl: "http://localhost:5173",
-      browsers: [{ kind: "chromium", results: [ /* same as Test 8 */ ] }],
+      browsers: [
+        {
+          kind: "chromium",
+          results: [
+            /* same as Test 8 */
+          ],
+        },
+      ],
     },
     { outputPath: "./report.html", write },
   );
@@ -857,13 +925,13 @@ test("printReport writes expected summary to stdout", () => {
 
 ### What the test plan does NOT cover (and why)
 
-| Scenario | Reason |
-|---|---|
-| `harness.capture("jpeg")` and `"svg"` | Same `pendingCaptures` path as `"png"` — one type is sufficient. |
-| Multi-browser runs | The orchestration layer is tested manually or in a future suite; per-browser data collection uses the same `startEventServer` path. |
-| SvelteKit harness | Out of scope for v1; browser-side changes are harness-agnostic. |
+| Scenario                                             | Reason                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `harness.capture("jpeg")` and `"svg"`                | Same `pendingCaptures` path as `"png"` — one type is sufficient.                                                                                                                                                                                                                             |
+| Multi-browser runs                                   | The orchestration layer is tested manually or in a future suite; per-browser data collection uses the same `startEventServer` path.                                                                                                                                                          |
+| SvelteKit harness                                    | Out of scope for v1; browser-side changes are harness-agnostic.                                                                                                                                                                                                                              |
 | `Closet.svelte` → `startDiscoveryServer` integration | `startDiscoveryServer` is unit-tested in Step 1 (synthetic POST), and Closet.svelte's `onMount` fetch is verified against the existing gallery test. But the two are never exercised together in a browser in this suite — that path is only covered by running `generateReport` end-to-end. |
-| Server timeout / hung page | Covered by Vitest's per-test timeout; `startEventServer` rejects after its own timeout as a secondary guard. |
+| Server timeout / hung page                           | Covered by Vitest's per-test timeout; `startEventServer` rejects after its own timeout as a secondary guard.                                                                                                                                                                                 |
 
 ---
 
@@ -893,7 +961,7 @@ Implement both as pure functions. Tests 8 and 9 from the test plan can be writte
 
 Wire the full `generateReport` flow using the pieces from Steps 1–5.
 
-### Step 7 — `docker/vite/report/Component.test.svelte` and `test.ts`
+### Step 7 — `containerized-tests/vite/report/Component.test.svelte` and `test.ts`
 
 Add the fixture and the Vitest integration suite. This validates the end-to-end event flow (Steps 1–4) inside a real browser container.
 
@@ -908,8 +976,8 @@ Add the fixture and the Vitest integration suite. This validates the end-to-end 
 {
   "scripts": {
     "dev": "vite",
-    "report": "node --experimental-strip-types ./node_modules/sweater-vest-suede/release/report.ts"
-  }
+    "report": "node --experimental-strip-types ./node_modules/sweater-vest-suede/release/report.ts",
+  },
 }
 ```
 
