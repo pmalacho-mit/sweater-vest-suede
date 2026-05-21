@@ -1,6 +1,6 @@
-import type { SearchParam, Event } from "./report";
-import { createCapturer as rawCreateCapturer } from "./utils/capture.js";
-import type { Props as RunnerProps, Container } from "./Runner.svelte";
+import type { SearchParam, Event } from "./index.js";
+import { createCapturer as rawCreateCapturer } from "../utils/capture.js";
+import type { Props as RunnerProps, Container } from "../Runner.svelte";
 
 export const param = (key: SearchParam, url?: URL) =>
   (url ?? new URL(window.location.href)).searchParams.get(key) ?? undefined;

@@ -4,7 +4,7 @@
   import Container, { mechanism, next, setTotal } from "./Container.svelte";
   import type { Snippet } from "svelte";
   import { createContainerMap } from "./utils/container-map.js";
-  import { suiteReady } from "./reporting.js";
+  import { suiteReady } from "./report/client.js";
 
   type ConfigProps = ContainerProps & {
     target?: HTMLElement;

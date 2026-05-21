@@ -216,7 +216,7 @@ These are git-suede subdependencies living in `release/suede/`. They are separat
 
 ### programmatic-docker-suede
 
-`release/suede/programmatic-docker-suede/`
+`release/.suede/programmatic-docker-suede/`
 
 A thin, typed Node.js API over Dockerode.
 
@@ -264,7 +264,7 @@ const network = await devcontainerNetwork(); // "container:<id>"
 
 ### browser-control-container-suede
 
-`release/suede/browser-control-container-suede/`
+`release/.suede/browser-control-container-suede/`
 
 Builds and runs a containerized Playwright CLI (`@playwright/cli`) and exposes a session-based tab API to drive it from Node tests.
 
@@ -311,7 +311,7 @@ Three browsers are supported: `"chromium"`, `"firefox"`, `"webkit"`. Each has it
 
 ### dockview-svelte-suede
 
-`release/suede/dockview-svelte-suede/`
+`release/.suede/dockview-svelte-suede/`
 
 Svelte 5 wrappers around the [dockview](https://dockview.dev/) panel layout library.
 

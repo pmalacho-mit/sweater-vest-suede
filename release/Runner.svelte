@@ -205,7 +205,7 @@
 
 <script lang="ts" generics="T extends Pocket">
   import { onMount } from "svelte";
-  import { reportables } from "./reporting";
+  import { reportables } from "./report/client";
 
   let {
     body,

@@ -1,6 +1,9 @@
 <script lang="ts" module>
-  import { type PanelProps, type ViewAPI } from "./suede/dockview-svelte-suede";
-  import "./suede/dockview-svelte-suede/styles/dockview.css";
+  import {
+    type PanelProps,
+    type ViewAPI,
+  } from "./.suede/dockview-svelte-suede";
+  import "./.suede/dockview-svelte-suede/styles/dockview.css";
   import Runner, {
     type Props as RunnerProps,
     type Container,
@@ -116,7 +119,7 @@
 </script>
 
 <script lang="ts">
-  import { GridView } from "./suede/dockview-svelte-suede";
+  import { GridView } from "./.suede/dockview-svelte-suede";
   import { defer } from "./utils";
 
   let {

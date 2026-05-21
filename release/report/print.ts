@@ -9,7 +9,9 @@ const compLabel = (path: string): string =>
     .replace(/\.test\.svelte$/, "")
     .replace(/\.svelte$/, "");
 
-const firstErrorLine = (error: NonNullable<Report.Result.Run["error"]>): string => {
+const firstErrorLine = (
+  error: NonNullable<Report.Result.Run["error"]>,
+): string => {
   const line = error.message.split("\n")[0] ?? "";
   return line.length > 120 ? line.slice(0, 120) + "…" : line;
 };
@@ -21,7 +23,7 @@ const firstErrorLine = (error: NonNullable<Report.Result.Run["error"]>): string 
  */
 export const printReport = (
   input: Report.RenderInput,
-  options?: { outputPath?: string; write?: (s: string) => void },
+  options?: { output?: string; write?: (s: string) => void },
 ): void => {
   const write = options?.write ?? process.stdout.write.bind(process.stdout);
   const tty = !options?.write && process.stdout.isTTY;
@@ -43,7 +45,9 @@ export const printReport = (
   const allBrowsers = [...new Set(allRunsFlat.map(({ browser }) => browser))];
   const multipleBrowsers = allBrowsers.length > 1;
   // Single-browser: append to each component line. Multi-browser: shown per failure item.
-  const componentBrowserSuffix = !multipleBrowsers ? dim(` — ${allBrowsers[0]}`) : "";
+  const componentBrowserSuffix = !multipleBrowsers
+    ? dim(` — ${allBrowsers[0]}`)
+    : "";
 
   for (const component of input.results) {
     const label = compLabel(component.component);
@@ -67,31 +71,46 @@ export const printReport = (
       .join(", ");
 
     if (failed > 0) {
-      write(` ${red("FAIL")}  ${label}   ${dim(`(${breakdown}, ${ms(totalMs)})`)}${componentBrowserSuffix}\n`);
+      write(
+        ` ${red("FAIL")}  ${label}   ${dim(`(${breakdown}, ${ms(totalMs)})`)}${componentBrowserSuffix}\n`,
+      );
       for (const container of component.containers) {
         const ctrLbl = container.category ?? `container ${container.index + 1}`;
         for (const test of container.tests) {
-          for (const run of test.runs.filter(({ status }) => status === "failed")) {
-            const testName = test.name ?? test.id ?? "(unnamed)";
+          for (const run of test.runs.filter(
+            ({ status }) => status === "failed",
+          )) {
+            const testName = test.name ?? test.components ?? "(unnamed)";
             const browserPart = multipleBrowsers ? ` *(${run.browser})*` : "";
             const location = dim(`[${ctrLbl} / test ${test.index + 1}]`);
             write(`       ${red("●")} ${testName}${browserPart} ${location}\n`);
-            if (run.error) write(`         ${dim(firstErrorLine(run.error))}\n`);
+            if (run.error)
+              write(`         ${dim(firstErrorLine(run.error))}\n`);
           }
         }
       }
     } else if (skipped === total) {
-      write(` ${yellow("SKIP")}  ${label}   ${dim(`(${total} tests skipped)`)}${componentBrowserSuffix}\n`);
+      write(
+        ` ${yellow("SKIP")}  ${label}   ${dim(`(${total} tests skipped)`)}${componentBrowserSuffix}\n`,
+      );
     } else {
-      write(` ${green("PASS")}  ${label}   ${dim(`(${breakdown}, ${ms(totalMs)})`)}${componentBrowserSuffix}\n`);
+      write(
+        ` ${green("PASS")}  ${label}   ${dim(`(${breakdown}, ${ms(totalMs)})`)}${componentBrowserSuffix}\n`,
+      );
     }
   }
 
   write(`${divider}\n`);
 
-  const totalPassed = allRunsFlat.filter(({ status }) => status === "passed").length;
-  const totalFailed = allRunsFlat.filter(({ status }) => status === "failed").length;
-  const totalSkipped = allRunsFlat.filter(({ status }) => status === "skipped").length;
+  const totalPassed = allRunsFlat.filter(
+    ({ status }) => status === "passed",
+  ).length;
+  const totalFailed = allRunsFlat.filter(
+    ({ status }) => status === "failed",
+  ).length;
+  const totalSkipped = allRunsFlat.filter(
+    ({ status }) => status === "skipped",
+  ).length;
   const grandTotalMs = allRunsFlat.reduce((s, r) => s + r.durationMs, 0);
 
   const countParts = [
@@ -103,6 +122,6 @@ export const printReport = (
 
   write(`Tests:  ${countParts.join(", ")}\n`);
   write(`Time:   ${ms(grandTotalMs)}\n`);
-  if (options?.outputPath) write(`Report: ${options.outputPath}\n`);
+  if (options?.output) write(`Report: ${options.output}\n`);
   write("\n");
 };

@@ -3,13 +3,13 @@ import {
   container,
   docker,
   image,
-} from "../../../release/suede/programmatic-docker-suede";
+} from "../../../release/.suede/programmatic-docker-suede";
 import {
   type Browser,
   buildAndRun,
   playwright,
   sessionWithTabs,
-} from "../../../release/suede/browser-control-container-suede";
+} from "../../../release/.suede/browser-control-container-suede";
 import { basename, relative, resolve } from "node:path";
 
 const harness = resolve(import.meta.dirname);
