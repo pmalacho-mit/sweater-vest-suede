@@ -13,7 +13,7 @@ const ctrLabel = (c: Report.Result.Container): string =>
   c.category ?? `container ${c.index + 1}`;
 
 const tstLabel = (t: Report.Result.Test): string =>
-  t.name ?? t.id ?? `test ${t.index + 1}`;
+  t.name ?? t.components ?? `test ${t.index + 1}`;
 
 const heading = (level: number, text: string) => `${"#".repeat(level)} ${text}`;
 
@@ -34,7 +34,9 @@ const omitContainerLevel = (containers: Report.Result.Container[]): boolean =>
 export const render = {
   trace: (artifacts: Report.Result.Run["artifacts"]) =>
     artifacts.map((a) =>
-      typeof a === "string" ? `- ${a}` : `- ![capture (${a.type})](${a.dataUri})`,
+      typeof a === "string"
+        ? `- ${a}`
+        : `- ![capture (${a.type})](${a.dataUri})`,
     ),
 
   /** Browser is always shown — it's per-run so it's always meaningful. */
@@ -46,7 +48,10 @@ export const render = {
   ): string => {
     const path = `${ctrLabel(container)} › ${tstLabel(test)}`;
     const lines = [
-      heading(3, `${code.inline(compLabel(component.component))} › ${path} *(${run.browser})*`),
+      heading(
+        3,
+        `${code.inline(compLabel(component.component))} › ${path} *(${run.browser})*`,
+      ),
       "",
     ];
 
@@ -55,7 +60,9 @@ export const render = {
 
     if (run.error) {
       const { message, stack } = run.error;
-      lines.push(`${trace.length + 1}. ❌ **${message.split("\n")[0] ?? message}**`);
+      lines.push(
+        `${trace.length + 1}. ❌ **${message.split("\n")[0] ?? message}**`,
+      );
       if (stack) {
         lines.push("");
         lines.push(details("Stack trace", code.block(stack)));
@@ -154,8 +161,12 @@ export const render = {
 
         const ti = omitCtr ? "" : "  ";
         for (const test of tests) {
-          for (const run of test.runs.filter(({ status }) => status === "skipped")) {
-            const prefix = omitCtr ? `${code.inline(compLabel(component.component))} › ` : "";
+          for (const run of test.runs.filter(
+            ({ status }) => status === "skipped",
+          )) {
+            const prefix = omitCtr
+              ? `${code.inline(compLabel(component.component))} › `
+              : "";
             lines.push(`${ti}- ${prefix}${tstLabel(test)} *(${run.browser})*`);
           }
         }
@@ -198,11 +209,16 @@ export const renderMarkdown = (input: Report.RenderInput): string => {
           if (run.status === "failed")
             failedRuns.push({ component, container, test, run });
 
-  const totalPassed = allRuns.filter(({ status }) => status === "passed").length;
-  const totalSkipped = allRuns.filter(({ status }) => status === "skipped").length;
+  const totalPassed = allRuns.filter(
+    ({ status }) => status === "passed",
+  ).length;
+  const totalSkipped = allRuns.filter(
+    ({ status }) => status === "skipped",
+  ).length;
   const totalMs = allRuns.reduce((s, r) => s + r.durationMs, 0);
 
-  const multipleBrowsers = new Set(allRuns.map(({ browser }) => browser)).size > 1;
+  const multipleBrowsers =
+    new Set(allRuns.map(({ browser }) => browser)).size > 1;
 
   const statusLine =
     allRuns.length === 0

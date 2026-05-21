@@ -1,18 +1,18 @@
 import { writeFile } from "node:fs/promises";
-import { devcontainer } from "../suede/programmatic-docker-suede/devcontainer.js";
-import { container } from "../suede/programmatic-docker-suede";
+import { devcontainer } from "../.suede/programmatic-docker-suede/devcontainer.js";
+import { container } from "../.suede/programmatic-docker-suede";
 import {
   buildAndRun,
   playwright,
   sessionWithTabs,
   type SessionWithTabs,
   type Browser,
-} from "../suede/browser-control-container-suede";
+  browsers,
+} from "../.suede/browser-control-container-suede";
+import { cli } from "../.suede/typescript-cli-suede";
 import { startReportServer, type ReportServer } from "./events.ts";
-//import { renderReport, type ReportInput } from "./html.ts";
 import { printReport } from "./print.ts";
 import { renderMarkdown } from "./markdown.ts";
-import { isCliEntryPoint } from "../utils/node/index.ts";
 import { readableTimestamp, sort, type Expand } from "../utils/index.ts";
 import { getOrDefaults } from "../utils/options.ts";
 import type { TestResult } from "./events.ts";
@@ -30,14 +30,12 @@ export namespace Report {
     closet?: string;
     /** Browsers to run. */
     browsers?: Browser[];
-    /** Output path for the HTML report. */
-    outputPath?: string;
     /** Output path for the Markdown report. Pass an empty string to skip. */
-    markdownPath?: string;
+    output?: string;
     /** Only open components whose path matches this pattern. */
-    componentPattern?: RegExp;
+    component?: RegExp;
     /** Only run tests whose name or id matches this pattern. */
-    testPattern?: RegExp;
+    test?: RegExp;
   };
 
   /**
@@ -68,7 +66,7 @@ export namespace Report {
       passed: number;
       failed: number;
       skipped: number;
-      components: Component[];
+      results: Component[];
     };
   }
 
@@ -83,8 +81,7 @@ export const defaults = {
   server: `http://${devcontainer.ip()}:5173`,
   closet: `/`,
   browsers: ["chromium"],
-  outputPath: "./fashion-show.html",
-  markdownPath: "./fashion-show.md",
+  output: "./fashion-show.md",
 } as const satisfies Report.Options;
 
 const namer = async () => {
@@ -184,29 +181,29 @@ const findOrCreate = Object.assign(
   },
 );
 
+const components = (server: Report.Server, options: Report.Options) => {
+  const { component } = getOrDefaults(options, defaults, "component");
+  return server.paths.then((paths) =>
+    component ? paths.filter((path) => component.test(path)) : paths,
+  );
+};
+
 const results = async (
   server: Report.Server,
   options: Report.Options,
   sessions: Map<Browser, SessionWithTabs>,
 ): Promise<Report.Result.Component[]> => {
-  const { browsers, componentPattern, testPattern } = getOrDefaults(
+  const { browsers, test } = getOrDefaults(
     options,
     defaults,
     "browsers",
-    "componentPattern",
-    "testPattern",
-  );
-
-  const paths = await server.paths.then((paths) =>
-    componentPattern
-      ? paths.filter((path) => componentPattern.test(path))
-      : paths,
+    "test",
   );
 
   const results = await Promise.all(
-    paths.flatMap((component) =>
+    (await components(server, options)).flatMap((component) =>
       browsers.map(async (browser) => {
-        const url = urls.test(options, server, browser, component, testPattern);
+        const url = urls.test(options, server, browser, component, test);
         await sessions.get(browser)!.newTab(url);
         const testResults = await server.waitForComponent(browser, component);
         return testResults.map((result) => ({ component, browser, result }));
@@ -234,16 +231,41 @@ const results = async (
   return sorted;
 };
 
+const onStatus = (status: TestResult["status"]) => (run: Report.Result.Run) =>
+  run.status === status;
+
+const summarize = (results: Report.Result.Component[]) => {
+  const flat = results.flatMap(({ containers }) =>
+    containers.flatMap(({ tests }) => tests.flatMap(({ runs }) => runs)),
+  );
+  return {
+    results,
+    total: flat.length,
+    passed: flat.filter(onStatus("passed")).length,
+    failed: flat.filter(onStatus("failed")).length,
+    skipped: flat.filter(onStatus("skipped")).length,
+  } satisfies Report.Result.Summary;
+};
+
+const tryRenderMarkdown = async (
+  input: Report.RenderInput,
+  options: Report.Options,
+) => {
+  const { output } = getOrDefaults(options, defaults, "output");
+  if (!output) return;
+  await writeFile(output, renderMarkdown(input), "utf-8");
+  console.log(`Report written to ${output}`);
+};
+
 export const generateReport = async (
   options: Report.Options = {},
 ): Promise<Report.Result.Summary | undefined> => {
-  const { closet, outputPath, markdownPath, browsers } = getOrDefaults(
+  const { closet, browsers, output } = getOrDefaults(
     options,
     defaults,
     "browsers",
     "closet",
-    "outputPath",
-    "markdownPath",
+    "output",
   );
 
   let server: ReportServer | undefined;
@@ -284,24 +306,9 @@ export const generateReport = async (
       results: await results(server, options, sessions),
     };
 
-    printReport(reported, { outputPath });
-    //await writeFile(outputPath, renderReport(reported), "utf-8");
-    if (markdownPath)
-      await writeFile(markdownPath, renderMarkdown(reported), "utf-8");
-    console.log(
-      `Report written to ${outputPath}${markdownPath ? ` and ${markdownPath}` : ""}`,
-    );
-
-    const flat = reported.results.flatMap(({ containers }) =>
-      containers.flatMap(({ tests }) => tests.flatMap(({ runs }) => runs)),
-    );
-    return {
-      components: reported.results,
-      total: flat.length,
-      passed: flat.filter(({ status }) => status === "passed").length,
-      failed: flat.filter(({ status }) => status === "failed").length,
-      skipped: flat.filter(({ status }) => status === "skipped").length,
-    };
+    printReport(reported, { output });
+    await tryRenderMarkdown(reported, options);
+    return summarize(reported.results);
   } catch (e) {
     console.error("Report generation failed:", e);
   } finally {
@@ -319,17 +326,47 @@ export const generateReport = async (
   }
 };
 
-if (isCliEntryPoint(import.meta.url)) {
-  const args = process.argv.slice(2);
-  const tIdx = args.indexOf("-t");
-  const testPatternStr = tIdx !== -1 ? args[tIdx + 1] : undefined;
-  const componentPatternStr = args.find((a) => !a.startsWith("-"));
+if (cli.entry(import.meta.url)) {
+  const { server, closet, browser, output, test, component } = cli(
+    "Run the sweater vest report script.",
+    cli.flag(
+      ["server", "s"],
+      "URL where the development server is running.",
+      defaults.server,
+    ),
+    cli.flag(
+      ["closet", "c"],
+      "Endpoint where Closet.svelte is rendered (relative to the server URL).",
+      defaults.closet,
+    ),
+    cli.flags(
+      ["browser", "b"],
+      "Which browser(s) to run",
+      browsers,
+      defaults.browsers,
+    ),
+    cli.flag(
+      ["output", "o"],
+      "Output path for the Markdown report. Pass an empty string to skip.",
+      defaults.output,
+    ),
+    cli.flag(
+      ["test", "t"],
+      "Only run tests whose name or id matches this pattern.",
+    ),
+    cli.flag(
+      ["component", "m"],
+      "Only open components whose path matches this pattern.",
+    ),
+  );
 
   generateReport({
-    componentPattern: componentPatternStr
-      ? new RegExp(componentPatternStr, "i")
-      : undefined,
-    testPattern: testPatternStr ? new RegExp(testPatternStr, "i") : undefined,
+    server,
+    closet,
+    output,
+    browsers: browser,
+    component: component ? new RegExp(component, "i") : undefined,
+    test: test ? new RegExp(test, "i") : undefined,
   })
     .then((summary) => {
       if ((summary?.failed ?? 1) > 0) process.abort();

@@ -78,7 +78,7 @@
 
 <script lang="ts">
   import { onMount, type Component } from "svelte";
-  import { tryPost, param, server } from "./reporting.js";
+  import { tryPost, param, server } from "./report/client.js";
   import { SvelteURLSearchParams } from "svelte/reactivity";
 
   const params = new SvelteURLSearchParams();

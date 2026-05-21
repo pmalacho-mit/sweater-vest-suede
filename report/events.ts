@@ -1,5 +1,5 @@
 import { defer, type Deferred } from "../utils";
-import { createHttpListener } from "../utils/node/server.js";
+import { createHttpListener } from "./server.js";
 
 export namespace Event {
   export type Typed<T extends string = string, V = {}> = { type: T } & V;
@@ -21,6 +21,7 @@ export namespace Event {
     {
       name?: string;
       id?: string;
+      components?: string;
       index: number;
       container: {
         index: number;
