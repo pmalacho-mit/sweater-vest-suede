@@ -90,8 +90,8 @@
     const component = param("component", url);
     if (component) return params.set("component", component);
     const reportServer = server(url);
-    if (!reportServer) return;
-    tryPost({ type: "closet-ready", paths: Object.keys(glob) }, reportServer);
+    if (reportServer)
+      tryPost({ type: "closet-ready", paths: Object.keys(glob) }, reportServer);
   });
 
   const selected = $derived(params.get("component"));
