@@ -31,7 +31,7 @@ Place test files alongside the components they test (e.g. `Button.test.svelte` n
   import Button from "./Button.svelte";
 
   class Pocket {
-    button = $state<HTMLButtonElement | undefined>(undefined);
+    button = $state<HTMLButtonElement>();
     clicked = $state(false);
   }
 </script>
