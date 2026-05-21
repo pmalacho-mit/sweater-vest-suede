@@ -4,7 +4,7 @@ A Svelte 5 component testing library that renders tests alongside the components
 
 Tests are written as `.test.svelte` files. Each file contains one or more `<Sweater>` components. A `<Sweater>` pairs a **vest snippet** (the rendered component under test) with a **body function** (the async test logic). Tests run live in the browser and display their results in a dockview grid panel.
 
-The same setup that powers interactive development also powers automated report generation: point the report script at your running dev server, and it drives a containerised browser through every test file and produces a Markdown report.
+The same setup that powers interactive development also powers automated report generation: point the report script at your running dev server, and it drives a containerized browser through every test file and produces a Markdown report.
 
 ---
 
@@ -59,31 +59,31 @@ The **pocket** is a plain class instance that holds reactive state shared betwee
 
 ### `<Sweater>` props
 
-| Prop       | Type                                                   | Description                                                        |
-| ---------- | ------------------------------------------------------ | ------------------------------------------------------------------ |
-| `body`     | `(harness: TestHarness<T>) => Promise<void>`           | The test logic. Required.                                          |
-| `vest`     | `Snippet<[pocket: T]>`                                 | The rendered component under test. Required.                       |
-| `name`     | `string`                                               | Display name shown in the panel tab and report. Strongly recommended. |
-| `id`       | `string`                                               | Stable identifier for targeting a specific test when filtering.    |
-| `mode`     | `"parallel" \| "serial"`                               | Scheduling relative to siblings. Default: `"parallel"`.            |
-| `lazy`     | `boolean`                                              | Defer rendering until `harness.set()` is called.                   |
-| `manual`   | `boolean`                                              | Wait for an external trigger before running.                       |
-| `position` | `"above" \| "below" \| "left" \| "right" \| "within"` | Position relative to the previous panel in the grid.               |
+| Prop       | Type                                                  | Description                                                           |
+| ---------- | ----------------------------------------------------- | --------------------------------------------------------------------- |
+| `body`     | `(harness: TestHarness<T>) => Promise<void>`          | The test logic. Required.                                             |
+| `vest`     | `Snippet<[pocket: T]>`                                | The rendered component under test. Required.                          |
+| `name`     | `string`                                              | Display name shown in the panel tab and report. Strongly recommended. |
+| `id`       | `string`                                              | Stable identifier for targeting a specific test when filtering.       |
+| `mode`     | `"parallel" \| "serial"`                              | Scheduling relative to siblings. Default: `"parallel"`.               |
+| `lazy`     | `boolean`                                             | Defer rendering until `harness.set()` is called.                      |
+| `manual`   | `boolean`                                             | Wait for an external trigger before running.                          |
+| `position` | `"above" \| "below" \| "left" \| "right" \| "within"` | Position relative to the previous panel in the grid.                  |
 
 ### `TestHarness` API
 
-| Member               | Description                                                                                                                         |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `set(pocket)`        | Initialise or replace the pocket; triggers render if `lazy`.                                                                        |
-| `definition(...keys)`| Wait for named pocket fields to become non-null (requires `$state` runes).                                                          |
-| `expect`             | All `@storybook/test` matchers (`expect(x).toBe(...)`, `expect(x).toMatchObject(...)`, etc.).                                       |
-| `withUserFocus(fn)`  | Serialise user interactions through a shared queue to prevent synthetic-event races.                                                |
-| `capture(type)`      | Screenshot the vest container. `"png"` / `"jpeg"` / `"svg"` return `{ uri: Promise<string>, download(filename) }`; `"blob"` / `"canvas"` / `"pixelData"` return the raw html-to-image promise. |
-| `note(text)`         | Add a text annotation to the report card. No-op during interactive development.                                                     |
-| `delay(amount)`      | Sleep for `{ seconds }`, `{ milliseconds }`, `{ minutes }`, or `{ frames }`.                                                        |
-| `container`          | The raw `HTMLElement` wrapping the vest snippet.                                                                                     |
-| `preventRender()`    | Block render until the returned function is called. Must be called before any `await`.                                              |
-| `onAbort(fn)`        | Register a teardown callback for when the test is aborted.                                                                          |
+| Member                | Description                                                                                                                                                                                    |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `set(pocket)`         | Initialise or replace the pocket; triggers render if `lazy`.                                                                                                                                   |
+| `definition(...keys)` | Wait for named pocket fields to become non-null (requires `$state` runes).                                                                                                                     |
+| `expect`              | All `@storybook/test` matchers (`expect(x).toBe(...)`, `expect(x).toMatchObject(...)`, etc.).                                                                                                  |
+| `withUserFocus(fn)`   | Serialise user interactions through a shared queue to prevent synthetic-event races.                                                                                                           |
+| `capture(type)`       | Screenshot the vest container. `"png"` / `"jpeg"` / `"svg"` return `{ uri: Promise<string>, download(filename) }`; `"blob"` / `"canvas"` / `"pixelData"` return the raw html-to-image promise. |
+| `note(text)`          | Add a text annotation to the report card. No-op during interactive development.                                                                                                                |
+| `delay(amount)`       | Sleep for `{ seconds }`, `{ milliseconds }`, `{ minutes }`, or `{ frames }`.                                                                                                                   |
+| `container`           | The raw `HTMLElement` wrapping the vest snippet.                                                                                                                                               |
+| `preventRender()`     | Block render until the returned function is called. Must be called before any `await`.                                                                                                         |
+| `onAbort(fn)`         | Register a teardown callback for when the test is aborted.                                                                                                                                     |
 
 ### Grouping tests
 
@@ -134,8 +134,8 @@ Copy `templates/vite/template.html` to your project root (rename it — e.g. `te
 {
   "scripts": {
     "dev": "vite",
-    "report": "<path>/sweater-vest-suede/report.sh"
-  }
+    "report": "<path>/sweater-vest-suede/report.sh",
+  },
 }
 ```
 
@@ -180,8 +180,8 @@ Prefix your build command with `with-exclude-tests-routes-from-build.sh` from `t
 ```jsonc
 {
   "scripts": {
-    "build": "<path>/sweater-vest-suede/templates/sveltekit/with-exclude-tests-routes-from-build.sh vite build"
-  }
+    "build": "<path>/sweater-vest-suede/templates/sveltekit/with-exclude-tests-routes-from-build.sh vite build",
+  },
 }
 ```
 
@@ -198,7 +198,7 @@ npm run dev
 
 ## 4. Automated reporting
 
-The report script starts a containerised Playwright browser, drives it through every test file the Closet knows about, collects results, and writes a Markdown report. **Docker is required** — no browser needs to be installed locally.
+The report script starts a containerized Playwright browser, drives it through every test file the Closet knows about, collects results, and writes a Markdown report. **Docker is required** — no browser needs to be installed locally.
 
 ### Running the report
 
@@ -216,14 +216,14 @@ Open `fashion-show.md` to see the full report with pass/fail status, duration, e
 
 ### CLI flags
 
-| Flag                     | Shorthand | Description                                                 | Default                        |
-| ------------------------ | --------- | ----------------------------------------------------------- | ------------------------------ |
-| `--server <url>`         | `-s`      | URL where your dev server is running.                       | `http://<devcontainer-ip>:5173`|
-| `--closet <path>`        | `-c`      | Path on `server` where `Closet.svelte` is rendered.         | `/`                            |
-| `--browser <name>`       | `-b`      | Browser to use. Repeatable for multi-browser runs.          | `chromium`                     |
-| `--output <path>`        | `-o`      | Output path for the Markdown report. Pass `""` to skip.     | `./fashion-show.md`            |
-| `--component <pattern>`  | `-m`      | Only open components whose path matches this regex.         | (all)                          |
-| `--test <pattern>`       | `-t`      | Only run tests whose name or id matches this regex.         | (all)                          |
+| Flag                    | Shorthand | Description                                             | Default                         |
+| ----------------------- | --------- | ------------------------------------------------------- | ------------------------------- |
+| `--server <url>`        | `-s`      | URL where your dev server is running.                   | `http://<devcontainer-ip>:5173` |
+| `--closet <path>`       | `-c`      | Path on `server` where `Closet.svelte` is rendered.     | `/`                             |
+| `--browser <name>`      | `-b`      | Browser to use. Repeatable for multi-browser runs.      | `chromium`                      |
+| `--output <path>`       | `-o`      | Output path for the Markdown report. Pass `""` to skip. | `./fashion-show.md`             |
+| `--component <pattern>` | `-m`      | Only open components whose path matches this regex.     | (all)                           |
+| `--test <pattern>`      | `-t`      | Only run tests whose name or id matches this regex.     | (all)                           |
 
 Patterns are case-insensitive regular expressions. Tests that don't match `--test` are recorded as `skipped` in the report rather than omitted entirely.
 
@@ -255,8 +255,8 @@ const summary = await generateReport({
   server: "http://localhost:5173",
   browsers: ["chromium", "firefox", "webkit"],
   output: "./reports/latest.md",
-  component: /Button/i,  // optional regex filter
-  test: /hover/i,        // optional regex filter
+  component: /Button/i, // optional regex filter
+  test: /hover/i, // optional regex filter
 });
 
 console.log(summary?.passed, "passed,", summary?.failed, "failed");
