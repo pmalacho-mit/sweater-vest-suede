@@ -97,9 +97,8 @@ describe(
 
     /**
      * Shared framework component: changing it likely triggers HMR that
-     * re-executes the module script. We append a property onto the existing
-     * __SWEATER_VEST__ window object — which persists across ??= reinit —
-     * and poll for it to appear.
+     * re-executes the module script. We prepend a property assignment onto the
+     * module script and poll for it to appear after HMR.
      */
     const frameworkComponent = (): Case => {
       const file = "release/Sweater.svelte" as const;
@@ -107,7 +106,9 @@ describe(
         file,
         handlers: (tab, marker) => ({
           ready: () =>
-            tab.evaluate(() => window.__SWEATER_VEST__?.counts !== undefined),
+            tab.evaluate(() =>
+              Boolean(document.getElementById("loaded-at")?.textContent),
+            ),
           edit: () =>
             prependToSvelteModule(
               file,
