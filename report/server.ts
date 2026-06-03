@@ -3,7 +3,7 @@ import {
   type IncomingMessage,
   type ServerResponse,
 } from "node:http";
-import devcontainer from "../.suede/programmatic-docker-suede/devcontainer.js";
+import devcontainer from "../../sweater-vest-suede.programmatic-docker-suede/devcontainer.js";
 
 const MAX_BODY_BYTES = 50 * 1024 * 1024; // 50 MB
 
