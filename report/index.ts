@@ -1,15 +1,14 @@
 import { writeFile } from "node:fs/promises";
-import { devcontainer } from "../.suede/programmatic-docker-suede/devcontainer.js";
-import { container } from "../.suede/programmatic-docker-suede";
+import devcontainer from "../../sweater-vest-suede.programmatic-docker-suede/devcontainer.js";
+import { container } from "../../sweater-vest-suede.programmatic-docker-suede";
 import {
   buildAndRun,
   playwright,
   sessionWithTabs,
-  type SessionWithTabs,
   type Browser,
   browsers,
-} from "../.suede/browser-control-container-suede";
-import { cli } from "../.suede/typescript-cli-suede";
+} from "../../sweater-vest-suede.browser-control-container-suede";
+import { cli } from "../../sweater-vest-suede.typescript-cli-suede";
 import { startReportServer, type ReportServer } from "./events.ts";
 import { printReport } from "./print.ts";
 import { renderMarkdown } from "./markdown.ts";
@@ -19,6 +18,8 @@ import type { TestResult } from "./events.ts";
 
 export { renderMarkdown } from "./markdown.ts";
 export type { TestResult, Event } from "./events.ts";
+
+type SessionWithTabs = Awaited<ReturnType<typeof sessionWithTabs>>;
 
 export namespace Report {
   export type Server = ReportServer;
