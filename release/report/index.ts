@@ -370,10 +370,10 @@ if (cli.entry(import.meta.url)) {
     test: test ? new RegExp(test, "i") : undefined,
   })
     .then((summary) => {
-      if ((summary?.failed ?? 1) > 0) process.abort();
+      if ((summary?.failed ?? 1) > 0) process.exit(1);
     })
     .catch((e) => {
       console.error("Report generation failed:", e);
-      process.abort();
+      process.exit(1);
     });
 }
