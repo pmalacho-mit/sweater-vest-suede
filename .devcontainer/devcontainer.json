@@ -2,28 +2,34 @@
   "customizations": {
     "desolate": {
       "allowPrivileged": true,
-      "shadowImages": ["node:22-bookworm-slim"]
+      "shadowImages": ["node:22-bookworm-slim"],
+      "ports": [5173]
     },
     "vscode": {
       "extensions": [
         "anthropic.claude-code",
         "ms-azuretools.vscode-docker",
-        "esbenp.prettier-vscode"
+        "esbenp.prettier-vscode",
+        "svelte.svelte-vscode"
       ],
       "settings": {
+        "editor.formatOnSave": true,
+        "editor.tabSize": 2,
+        "files.autoSave": "off",
+        "svelte.enable-ts-plugin": true,
+        "svelte.ask-to-enable-ts-plugin": false,
         "[javascript]": {
-          "editor.defaultFormatter": "esbenp.prettier-vscode",
-          "editor.formatOnSave": true
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
         },
         "[markdown]": {
           "editor.defaultFormatter": null
         },
-        "[typescript]": {
-          "editor.defaultFormatter": "esbenp.prettier-vscode",
-          "editor.formatOnSave": true
+        "[svelte]": {
+          "editor.defaultFormatter": "svelte.svelte-vscode"
         },
-        "editor.formatOnSave": true,
-        "editor.tabSize": 2
+        "[typescript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        }
       }
     }
   },
