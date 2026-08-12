@@ -3,13 +3,13 @@ import {
   container,
   docker,
   image,
-} from "../../../release/.suede/programmatic-docker-suede";
+} from "../../../sweater-vest-suede.programmatic-docker-suede";
 import {
   type Browser,
   buildAndRun,
   playwright,
   sessionWithTabs,
-} from "../../../release/.suede/browser-control-container-suede";
+} from "../../../sweater-vest-suede.browser-control-container-suede";
 import { basename, relative, resolve } from "node:path";
 
 const harness = resolve(import.meta.dirname);
@@ -106,6 +106,16 @@ export const configure = <const T extends string>(
 type Config = ReturnType<typeof configure>;
 
 /**
+ * The only paths the Vite image needs. Restricting the context keeps builds
+ * fast, so anything the Dockerfile `COPY`s must be listed here.
+ */
+const buildContextPaths = [
+  "containerized-tests/vite",
+  "release",
+  "sweater-vest-suede.dockview-svelte-suede",
+];
+
+/**
  * Builds the Vite Docker image for the given test case, streaming build output to stdout.
  * Throws if the build exits with a non-zero status.
  */
@@ -119,7 +129,7 @@ export const buildViteImage = async ({
   const build = image.build(tag, root, {
     dockerfile,
     version: "2", // ensure BuildKit features are available (e.g. COPY --exclude)
-    include: ["containerized-tests/vite", "release"], // restrict build context for faster builds
+    include: buildContextPaths,
     buildargs: { TEST_CASE, HARNESS },
   });
   for await (const chunk of build.chunks()) process.stdout.write(chunk.data);
@@ -199,6 +209,13 @@ export const browserCanReachVite = async (
   );
 
 /**
+ * Budget for building both images and starting their containers. On a machine
+ * with a cold Docker cache this includes downloading the Playwright browsers
+ * into the browser-control image, which alone can take several minutes.
+ */
+const setupTimeoutMs = 900_000;
+
+/**
  * Registers `beforeAll`/`afterAll` hooks that build and run the Vite and
  * browser-control containers for the test case named after `import_meta_dirname`.
  * Pass `import.meta.dirname` from the test file.
@@ -222,7 +239,7 @@ export const sessionSuite = (import_meta_dirname: string, harness: Harness) => {
       config.browser.session,
       config.browser.kind,
     );
-  }, 300_000);
+  }, setupTimeoutMs);
 
   afterAll(async () =>
     Promise.allSettled([

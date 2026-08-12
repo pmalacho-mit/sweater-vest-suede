@@ -85,11 +85,17 @@ export const defaults = {
   output: "./fashion-show.md",
 } as const satisfies Report.Options;
 
+/**
+ * Names are scoped by devcontainer id so that a browser container is reused
+ * across runs from the same devcontainer and never shared with another one.
+ * The id comes from the hostname rather than an inspect, which the daemon
+ * cannot answer when it runs inside the devcontainer (docker-in-docker).
+ */
 const namer = async () => {
-  const { Config } = await devcontainer.inspect();
+  const scope = await devcontainer.id();
   const timestamp = readableTimestamp();
   return {
-    container: (browser) => `${browser}-${Config.Image}`,
+    container: (browser) => `${browser}-sweater-vest-${scope}`,
     session: (browser) => `${browser}-sweater-vest-${timestamp}`,
   } satisfies Record<string, (browser: Browser) => string>;
 };

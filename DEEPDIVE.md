@@ -45,10 +45,15 @@ release/          ← Published package source (what consumers install)
   utils/          ← Shared utilities (defer, abort, capture, options, etc.)
   report/         ← Report system: event types, HTTP server, CLI entry, renderers
   templates/      ← Starter templates (svelte, sveltekit, vite)
-  .suede/         ← Suede subdependencies (see §7)
+  .suede/         ← Suede bookkeeping: vendored core scripts + dependency pins (see §7)
+
+sweater-vest-suede.<dep>/   ← The suede dependencies themselves, as siblings of
+                              release/ — the same layout a consumer ends up with
+                              after install (see §7)
 
 src/              ← Minimal SvelteKit app (dev scaffolding only)
   demo.spec.ts    ← Basic smoke test
+  routes/tests/   ← Closet route; the same setup §3 documents for consumers
 
 containerized-tests/           ← Docker-based integration test harness
   vite/
@@ -74,7 +79,11 @@ import { Sweater } from "<path>/sweater-vest-suede";
 import type { TestHarness, PocketElements } from "<path>/sweater-vest-suede";
 ```
 
-The package has **no build step** — it is consumed directly from source by the host project's bundler (Vite). The `release/.suede/` subdirectories are co-published suede dependencies (see §7).
+The package has **no build step** — it is consumed directly from source by the host project's bundler (Vite).
+
+Its suede dependencies are **not** nested inside `release/`. They install as siblings of it, named `<repo>.<dependency>`, and `release/` reaches them with `../sweater-vest-suede.<dependency>` — a path that resolves identically in this repo and in a consumer's project (see §7). `release/.suede/` holds only the bookkeeping: the vendored core scripts and the `.gitrepo` pins naming which commit of each dependency is published.
+
+Anything that stands `release/` up somewhere new must reproduce that sibling layout — see the Vite harness image in §8.
 
 ### Runtime dependencies consumers must have
 
@@ -268,6 +277,7 @@ The queue does not start until `queue.open()` is called (done in `Runner.onMount
 | `index.ts`    | `generateReport(options?)`, `Report` namespace, defaults, CLI entry point (via `typescript-cli-suede`)       |
 | `markdown.ts` | `renderMarkdown(input)` — converts `Report.RenderInput` into a Markdown string                               |
 | `print.ts`    | `printReport(input, options)` — pretty-prints a summary to stdout                                            |
+| `display.ts`  | `display` — how a component, container, test, or duration is labelled; shared by both renderers so the stdout summary and the Markdown report can never disagree |
 
 ### `generateReport(options?)`
 
@@ -519,10 +529,13 @@ COPY containerized-tests/vite/.harness/base/ → /app/
 COPY containerized-tests/vite/.harness/${HARNESS}.ts → /app/src/main.ts
 COPY containerized-tests/vite/${TEST_CASE}/ → /app/src/  (excluding *.test.ts files)
 COPY release/ → /app/src/release/
+COPY sweater-vest-suede.dockview-svelte-suede/ → /app/src/sweater-vest-suede.dockview-svelte-suede/
 CMD npm run dev -- --host 0.0.0.0 --port 5173 --strictPort
 ```
 
-The image is built using BuildKit (`version: "2"` in `image.build`) with the context restricted to `["containerized-tests/vite", "release"]` to minimize tar overhead. The `COPY --exclude` flags drop `*.test.ts` files and the `release/` directory from the test-case layer (which is populated separately), avoiding stale artefacts.
+The last two `COPY`s reproduce the sibling layout described in §2: `Container.svelte` imports dockview through `../sweater-vest-suede.dockview-svelte-suede`, so that directory has to land next to `release/` inside the image. Omitting it does not fail the build — Vite only fails to resolve the import at request time, which surfaces as tests that render nothing.
+
+The image is built using BuildKit (`version: "2"` in `image.build`) with the context restricted to `buildContextPaths` to minimize tar overhead. Every path the Dockerfile `COPY`s must appear in that list. The `COPY --exclude` flags drop `*.test.ts` files and the `release/` directory from the test-case layer (which is populated separately), avoiding stale artefacts.
 
 ---
 
@@ -672,7 +685,17 @@ Vitest (server project)
 
 **BuildKit is required for the Vite harness Dockerfile.** Pass `version: "2"` to `image.build` to enable it. The npm cache mount (`--mount=type=cache,target=/root/.npm`) and `COPY --exclude` directives only work with BuildKit. Do **not** add a `# syntax=containerized-tests/dockerfile:1.7` frontend directive — it causes Dockerode's session to fail.
 
-**Context restriction in `image.build`.** The `include: ["containerized-tests/vite", "release"]` option prevents dockerode from tarring the entire repo. Without it, the build context transfer alone can take several seconds.
+**Context restriction in `image.build`.** The `include: buildContextPaths` option prevents dockerode from tarring the entire repo. Without it, the build context transfer alone can take several seconds. The flip side is that a path missing from that list is silently absent from the image rather than a build error.
+
+**Docker topology: `"peer"` vs `"host"`.** Anything that needs to reach the devcontainer from a container must go through `devcontainer.topology()`. Under **docker-outside-of-docker** (`"peer"`) the devcontainer is a sibling container, so it must join a network before it has an address on it. Under **docker-in-docker** (`"host"`) — what this repo's `.devcontainer` uses — the daemon runs inside the devcontainer, so the devcontainer is not one of its containers at all: `devcontainer.inspect()` throws, and the address to use is the network's gateway. `devcontainer.id()`, `devcontainer.ip()`, `devcontainer.network()` and `devcontainer.ip.inspect()` all work under both; `devcontainer.inspect()` does not.
+
+**`devcontainer.network()` throws when several networks qualify.** Under `"host"` it enumerates *every* bridge network the daemon owns, so a leftover network from an interrupted test run is enough to make it ambiguous. Pass a `filter` when a specific network is meant, and `docker network prune` after a killed run.
+
+**Shell scripts in `release/` need a shebang.** npm runs `scripts` entries through `/bin/sh`, which is `dash` on Debian/Ubuntu. `report.sh` uses `${BASH_SOURCE[0]}` to locate itself, so without `#!/usr/bin/env bash` (and the executable bit) it fails with `Bad substitution` and then resolves its own path to the caller's cwd.
+
+**`npm run doc` is pinned to parkdown `0.0.32`.** The root `README.md` is generated from the `pd:` region markers in `src/routes/docs/**`. Later parkdown releases (`0.0.34`, `0.0.37`) resolve those regions differently and emit near-empty code blocks, silently gutting the README's examples. `0.0.32` reproduces the committed file byte-for-byte. Re-pin only after checking `git diff README.md` on a regeneration.
+
+**Templates must not match the test glob.** `templates/svelte/*.template` are named so that a consumer's `import.meta.glob("/src/**/*.test.svelte")` cannot pick them up. They contain `<path>` placeholders that do not resolve, so if Vite ever tries to compile them the dependency scan fails and the whole closet page breaks — not just those files.
 
 **`PromiseQueue` vs `userFocusQueue`.** There are two queues. The main `queue` (per-group, reset on live-reload) schedules test bodies. The `userFocusQueue` (global, always open) serializes `userEvent` calls across all tests to prevent synthetic event races in the browser.
 

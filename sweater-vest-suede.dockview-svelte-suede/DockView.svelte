@@ -28,6 +28,18 @@
 
   let dockCount = 0;
 
+  /**
+   * Every dockview option that is forwarded straight from props.
+   *
+   * `theme` is not one of them: it arrives as a theme *name* which this
+   * component maps to a theme object, so it is applied by its own effect.
+   * Forwarding it here would push `undefined` over that mapped value.
+   */
+  const forwardedOptionKeys = PROPERTY_KEYS_DOCKVIEW.filter(
+    (key): key is Exclude<(typeof PROPERTY_KEYS_DOCKVIEW)[number], "theme"> =>
+      key !== "theme",
+  );
+
   type GroupControlElementKey =
     | "leftHeaderActions"
     | "rightHeaderActions"
@@ -119,7 +131,7 @@
 
   let dockView: ViewAPI<"dock", Components, Snippets>;
 
-  for (const key of PROPERTY_KEYS_DOCKVIEW)
+  for (const key of forwardedOptionKeys)
     $effect(() => dockView!?.updateOptions({ [key]: props[key] }));
 
   const frameworkOptions: DockviewFrameworkOptions = {
@@ -195,7 +207,7 @@
 
   onMount(() => {
     const api = createDockview(element!, {
-      ...extractCoreOptions(props, PROPERTY_KEYS_DOCKVIEW),
+      ...extractCoreOptions(props, forwardedOptionKeys),
       ...frameworkOptions,
       theme,
     });

@@ -15,7 +15,10 @@ COPY containerized-tests/vite/.harness/${HARNESS}.ts ./src/main.ts
 
 COPY --exclude=**/*test.ts --exclude=release containerized-tests/vite/${TEST_CASE}/ ./src/
 
+# `release/` resolves its suede dependencies as siblings of itself, exactly as
+# they sit in a consumer's project after install. Reproduce that layout here.
 COPY release/ ./src/release/
+COPY sweater-vest-suede.dockview-svelte-suede/ ./src/sweater-vest-suede.dockview-svelte-suede/
 
 EXPOSE 5173
 

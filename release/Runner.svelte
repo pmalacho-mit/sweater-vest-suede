@@ -36,8 +36,13 @@
      */
     onAbort: (fn: (this: AbortSignal) => void) => void;
     /**
-     * Utilities for capturing the visual state of the `container` element.
-     * @returns `{ toPng(), toSvg(), toJpeg(), toBlob(), toCanvas(), toPixelData() }`
+     * Captures the visual state of the `container` element at the moment of
+     * the call, and attaches it to this test's report card.
+     *
+     * `"png"` / `"jpeg"` / `"svg"` give back `{ uri, download(filename) }`;
+     * `"blob"` / `"canvas"` / `"pixelData"` give back the underlying
+     * `html-to-image` promise.
+     * @example harness.capture("png");
      */
     capture: ReturnType<typeof createCapturer>;
     /**

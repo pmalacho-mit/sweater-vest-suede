@@ -1,5 +1,4 @@
 import { mount } from "svelte";
-import "./app.css";
 import Closet from "<path>/sweater-vest-suede/Closet.svelte";
 
 const app = mount(Closet, {

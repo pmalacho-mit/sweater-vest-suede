@@ -1,7 +1,7 @@
 import { describe, test, beforeAll, afterAll, expect } from "vitest";
 import { sessionSuite } from "../.harness/index.ts";
-import { dockerode } from "../../../release/.suede/programmatic-docker-suede/index.ts";
-import devcontainer from "../../../release/.suede/programmatic-docker-suede/devcontainer.js";
+import { dockerode } from "../../../sweater-vest-suede.programmatic-docker-suede/index.ts";
+import devcontainer from "../../../sweater-vest-suede.programmatic-docker-suede/devcontainer.js";
 import { startReportServer } from "../../../release/report/events.ts";
 import { renderMarkdown } from "../../../release/report/markdown.ts";
 import { printReport } from "../../../release/report/print.ts";
@@ -12,48 +12,48 @@ describe("report", { concurrent: true }, () => {
 
   const COMPONENT = "/src/Component.test.svelte";
 
-  let devcontainerId: string;
+  type Membership = (opts: { Container: string }) => Promise<void>;
+
+  const testNetwork = () => dockerode.getNetwork(config.network);
+
+  /**
+   * Under `"peer"` the devcontainer is a sibling container with no address on
+   * the test network until it joins one. Under `"host"` it already sits at
+   * that network's gateway, so there is nothing to join.
+   */
+  const devcontainerMustJoinTestNetwork = async () =>
+    (await devcontainer.topology()) === "peer";
+
+  const joinTestNetwork = (id: string) =>
+    (testNetwork().connect as Membership)({ Container: id }).catch(() => {});
+
+  const leaveTestNetwork = (id: string) =>
+    (testNetwork().disconnect as Membership)({ Container: id }).catch(() => {});
+
+  /**
+   * The address at which a container on the test network reaches the report
+   * server, which runs in this process bound to `0.0.0.0`.
+   */
   let reportServerHostIp: string;
 
-  // The report server (running in the devcontainer process) binds to 0.0.0.0 but
-  // uses devcontainer.ip() to construct its URL. That IP is only reachable from
-  // containers sharing the devcontainer's network namespace — not from containers
-  // on a separate bridge network like vite-report-network.
-  //
-  // Connecting the devcontainer to the test network gives it an additional IP on
-  // that subnet. The server (bound to 0.0.0.0) then accepts POST requests from
-  // the browser container at that IP.
+  let joinedTestNetwork: string | undefined;
+
   beforeAll(async () => {
-    const info = await devcontainer.inspect();
-    devcontainerId = info.Id;
+    const id = await devcontainer.id();
 
-    const network = dockerode.getNetwork(config.network);
-    await (network.connect as (opts: { Container: string }) => Promise<void>)({
-      Container: devcontainerId,
-    }).catch(() => {}); // ignore if already connected
+    if (await devcontainerMustJoinTestNetwork()) {
+      await joinTestNetwork(id);
+      joinedTestNetwork = id;
+    }
 
-    const networkInfo = await network.inspect();
-    const containers = networkInfo.Containers ?? {};
-    const containerEntry =
-      containers[devcontainerId] ??
-      Object.values(containers).find((_, i) =>
-        Object.keys(containers)[i]?.startsWith(devcontainerId.slice(0, 12)),
-      );
-    reportServerHostIp = containerEntry?.IPv4Address?.split("/")[0] ?? "";
-
-    if (!reportServerHostIp)
-      throw new Error(
-        `Could not determine devcontainer IP on network ${config.network}`,
-      );
+    reportServerHostIp = await devcontainer.ip.inspect({
+      id,
+      filter: () => config.network,
+    });
   }, 30_000);
 
   afterAll(async () => {
-    if (devcontainerId)
-      await (
-        dockerode.getNetwork(config.network).disconnect as (opts: {
-          Container: string;
-        }) => Promise<void>
-      )({ Container: devcontainerId }).catch(() => {});
+    if (joinedTestNetwork) await leaveTestNetwork(joinedTestNetwork);
   });
 
   // Opens the fixture page via the closet and collects results via the report server.
@@ -61,8 +61,6 @@ describe("report", { concurrent: true }, () => {
     const server = await startReportServer(60_000);
     server.paths.catch(() => {}); // suppress unhandled rejection — /discover is never hit here
 
-    // Use the devcontainer's IP on the test network, not server.url's devcontainer.ip()
-    // (which is only reachable from containers sharing the devcontainer's namespace).
     const port = new URL(server.url).port;
     const reportUrl = `http://${reportServerHostIp}:${port}/chromium`;
 

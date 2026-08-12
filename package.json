@@ -12,8 +12,9 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run",
-		"doc": "npx @p-buddy/parkdown",
-		"undoc": "npx @p-buddy/parkdown --depopulate --no-inclusions",
+		"report": "release/report.sh --closet /tests",
+		"doc": "npx @p-buddy/parkdown@0.0.32",
+		"undoc": "npx @p-buddy/parkdown@0.0.32 --depopulate --no-inclusions",
 		"playwright-cli": "playwright-cli"
 	},
 	"devDependencies": {

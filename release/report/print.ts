@@ -1,13 +1,5 @@
 import type { Report } from ".";
-
-const ms = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(2)}s` : `${n}ms`);
-
-const compLabel = (path: string): string =>
-  path
-    .replace(/^\/+/, "")
-    .replace(/^(src|lib|packages\/[^/]+\/src)\//, "")
-    .replace(/\.test\.svelte$/, "")
-    .replace(/\.svelte$/, "");
+import { display } from "./display.ts";
 
 const firstErrorLine = (
   error: NonNullable<Report.Result.Run["error"]>,
@@ -50,7 +42,7 @@ export const printReport = (
     : "";
 
   for (const component of input.results) {
-    const label = compLabel(component.component);
+    const label = display.component(component.component);
     const allRuns = component.containers.flatMap(({ tests }) =>
       tests.flatMap(({ runs }) => runs),
     );
@@ -72,15 +64,15 @@ export const printReport = (
 
     if (failed > 0) {
       write(
-        ` ${red("FAIL")}  ${label}   ${dim(`(${breakdown}, ${ms(totalMs)})`)}${componentBrowserSuffix}\n`,
+        ` ${red("FAIL")}  ${label}   ${dim(`(${breakdown}, ${display.duration(totalMs)})`)}${componentBrowserSuffix}\n`,
       );
       for (const container of component.containers) {
-        const ctrLbl = container.category ?? `container ${container.index + 1}`;
+        const ctrLbl = display.container(container);
         for (const test of container.tests) {
           for (const run of test.runs.filter(
             ({ status }) => status === "failed",
           )) {
-            const testName = test.name ?? test.components ?? "(unnamed)";
+            const testName = display.test(test);
             const browserPart = multipleBrowsers ? ` *(${run.browser})*` : "";
             const location = dim(`[${ctrLbl} / test ${test.index + 1}]`);
             write(`       ${red("●")} ${testName}${browserPart} ${location}\n`);
@@ -95,7 +87,7 @@ export const printReport = (
       );
     } else {
       write(
-        ` ${green("PASS")}  ${label}   ${dim(`(${breakdown}, ${ms(totalMs)})`)}${componentBrowserSuffix}\n`,
+        ` ${green("PASS")}  ${label}   ${dim(`(${breakdown}, ${display.duration(totalMs)})`)}${componentBrowserSuffix}\n`,
       );
     }
   }
@@ -121,7 +113,7 @@ export const printReport = (
   ].filter(Boolean);
 
   write(`Tests:  ${countParts.join(", ")}\n`);
-  write(`Time:   ${ms(grandTotalMs)}\n`);
+  write(`Time:   ${display.duration(grandTotalMs)}\n`);
   if (options?.output) write(`Report: ${options.output}\n`);
   write("\n");
 };

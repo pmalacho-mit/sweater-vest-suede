@@ -220,20 +220,28 @@ export const sessionWithTabs = async (
    */
   const advance = () => {};
 
-  const withTabSelected = <Return>(index: number, fn: () => Return) => {
-    const result = queue.then(async () => {
-      await selectTab(index);
-      return fn();
-    }) as Promise<Awaited<Return>>;
+  /**
+   * A session has one current tab, and the CLI both moves it and reports it.
+   * Interleaving two such commands misattributes the reported index to the
+   * wrong caller, so they all run one at a time.
+   */
+  const againstCurrentTab = <Return>(fn: () => Return) => {
+    const result = queue.then(fn) as Promise<Awaited<Return>>;
     queue = result.then(advance, advance);
     return result;
   };
+
+  const withTabSelected = <Return>(index: number, fn: () => Return) =>
+    againstCurrentTab(async () => {
+      await selectTab(index);
+      return fn();
+    });
 
   return {
     selectTab,
     withTabSelected,
     newTab: (url: string = "about:blank") =>
-      playwright.newTab(container, url, session),
+      againstCurrentTab(() => playwright.newTab(container, url, session)),
     evaluateOnTab: <Return>(index: number, fn: () => Return) =>
       withTabSelected(index, () =>
         playwright.evaluate<Return>(container, fn, session),
