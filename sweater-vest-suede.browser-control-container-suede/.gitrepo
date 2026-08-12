@@ -4,7 +4,7 @@
 ; by the git-subrepo command. See https://github.com/ingydotnet/git-subrepo#readme
 ;
 [subrepo]
-	remote = https://github.com/pmalacho-mit/browser-control-container-suede
+	remote = git@github.com:pmalacho-mit/browser-control-container-suede
 	branch = release
 	commit = e7442fba6c8c39fa709fc08f09f4d07c1652b33b
 	parent = 9fa1904722d3c2a775f7e5c2ba79089f28c1fecc
