@@ -4,6 +4,6 @@
 ; by the git-subrepo command. See https://github.com/ingydotnet/git-subrepo#readme
 ;
 [subrepo]
-	remote = https://github.com/pmalacho-mit/dockview-svelte-suede.git
+	remote = https://github.com/pmalacho-mit/dockview-svelte-suede
 	branch = release
-	commit = 54b19e5aee3db5dd91a5524f3647da0315adbe48
+	commit = f1bd5e9e8b8c01c664818ebe0792f1603379ed79
