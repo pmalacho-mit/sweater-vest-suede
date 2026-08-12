@@ -1,7 +1,7 @@
+# sweater-vest-suede
+
 > [!NOTE]
 > This is a [suede](https://github.com/pmalacho-mit/suede) dependency. 
-
-# sweater-vest-suede
 
 A Svelte 5 component testing library that renders tests alongside the components they test — in your running dev server, with no build step.
 
