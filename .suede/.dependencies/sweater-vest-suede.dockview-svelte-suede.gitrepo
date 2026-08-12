@@ -6,4 +6,4 @@
 [subrepo]
 	remote = https://github.com/pmalacho-mit/dockview-svelte-suede
 	branch = release
-	commit = f1bd5e9e8b8c01c664818ebe0792f1603379ed79
+	commit = 78f12441d6dde01938f94e1c391eac48d858fb25
