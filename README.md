@@ -7,7 +7,7 @@ A Svelte 5 component testing library that renders tests alongside the components
 
 Tests are written as `.test.svelte` files. Each file contains one or more `<Sweater>` components. A `<Sweater>` pairs a **vest snippet** (the rendered component under test) with a **body function** (the async test logic). Tests run live in the browser and display their results in a dockview grid panel.
 
-The same setup that powers interactive development also powers automated report generation: point the report script at your running dev server, and it drives a containerized browser through every test file and produces a Markdown report.
+The same setup that powers interactive development also powers automated report generation: point the report script at your running dev server, and it drives a containerized browser through every test file and produces a Markdown report (see [reporting](#4-automated-reporting)).
 
 ---
 
