@@ -1,7 +1,8 @@
 {
   "customizations": {
     "desolate": {
-      "allowPrivileged": true
+      "allowPrivileged": true,
+      "shadowImages": ["node:22-bookworm-slim"]
     },
     "vscode": {
       "extensions": [
