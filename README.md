@@ -97,7 +97,18 @@ Wrap `<Sweater>` instances in `<Sweater config>` to group them in a shared panel
 </Sweater>
 ```
 
-The `category` prop on a config group labels that group in the report and can be used as a filter target.
+A config group can also be written as a self-closing `<Sweater config />` with no children, in which case it applies to every following `<Sweater>` until the next config group.
+
+#### `<Sweater config>` props
+
+| Prop          | Type                          | Description                                                                                              |
+| ------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `config`      | `true`                        | Marks this `<Sweater>` as a group rather than a test. Required.                                          |
+| `orientation` | `"horizontal" \| "vertical"`  | Direction new panels are added in. Default: `"horizontal"`.                                              |
+| `category`    | `string`                      | Labels the group in the report, and is a filter target for `--test`.                                     |
+| `mode`        | `"parallel" \| "serial"`      | Default scheduling for tests in the group. Individual tests may override it.                             |
+| `class`       | `string`                      | Class applied to the group's container element.                                                          |
+| `style`       | `string`                      | Inline style applied to the group's container element.                                                   |
 
 ---
 
@@ -328,7 +339,7 @@ body={async (harness) => {
 
 ### Named tests
 
-Always give tests a `name`. Without one, test cards in the report are labelled `(unnamed)` and the stdout summary cannot identify which tests failed.
+Always give tests a `name`. Without one, a test falls back to its position — `test 3` — in both the report and the stdout summary, which tells you where the failure is but not what it was checking.
 
 ```svelte
 <Sweater name="renders placeholder when value is empty" body={…}>

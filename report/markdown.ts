@@ -1,19 +1,5 @@
 import type { Report } from ".";
-
-const ms = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(2)}s` : `${n}ms`);
-
-const compLabel = (path: string): string =>
-  path
-    .replace(/^\/+/, "")
-    .replace(/^(src|lib|packages\/[^/]+\/src)\//, "")
-    .replace(/\.test\.svelte$/, "")
-    .replace(/\.svelte$/, "");
-
-const ctrLabel = (c: Report.Result.Container): string =>
-  c.category ?? `container ${c.index + 1}`;
-
-const tstLabel = (t: Report.Result.Test): string =>
-  t.name ?? t.components ?? `test ${t.index + 1}`;
+import { display } from "./display.ts";
 
 const heading = (level: number, text: string) => `${"#".repeat(level)} ${text}`;
 
@@ -46,11 +32,11 @@ export const render = {
     test: Report.Result.Test,
     run: Report.Result.Run,
   ): string => {
-    const path = `${ctrLabel(container)} › ${tstLabel(test)}`;
+    const path = `${display.container(container)} › ${display.test(test)}`;
     const lines = [
       heading(
         3,
-        `${code.inline(compLabel(component.component))} › ${path} *(${run.browser})*`,
+        `${code.inline(display.component(component.component))} › ${path} *(${run.browser})*`,
       ),
       "",
     ];
@@ -93,14 +79,14 @@ export const render = {
       : "";
 
     const lines: string[] = [
-      `**${code.inline(compLabel(component.component))}**${headerBrowser} · ${passedRuns.length} of ${allRuns.length} passed · ${ms(totalMs)}`,
+      `**${code.inline(display.component(component.component))}**${headerBrowser} · ${passedRuns.length} of ${allRuns.length} passed · ${display.duration(totalMs)}`,
       "",
     ];
 
     const omitCtr = omitContainerLevel(component.containers);
 
     for (const container of component.containers) {
-      if (!omitCtr) lines.push(`- ${ctrLabel(container)}`);
+      if (!omitCtr) lines.push(`- ${display.container(container)}`);
       const ti = omitCtr ? "" : "  "; // test indent
       const ai = ti + "  "; // artifact indent
 
@@ -108,7 +94,7 @@ export const render = {
         const passed = test.runs.filter(({ status }) => status === "passed");
         if (passed.length === 0) continue;
 
-        const name = tstLabel(test);
+        const name = display.test(test);
         const hasArtifacts = passed.some((r) => r.artifacts.length > 0);
 
         if (!hasArtifacts) {
@@ -156,7 +142,7 @@ export const render = {
 
         if (!omitCtr)
           lines.push(
-            `- ${code.inline(compLabel(component.component))} › ${ctrLabel(container)}`,
+            `- ${code.inline(display.component(component.component))} › ${display.container(container)}`,
           );
 
         const ti = omitCtr ? "" : "  ";
@@ -165,9 +151,9 @@ export const render = {
             ({ status }) => status === "skipped",
           )) {
             const prefix = omitCtr
-              ? `${code.inline(compLabel(component.component))} › `
+              ? `${code.inline(display.component(component.component))} › `
               : "";
-            lines.push(`${ti}- ${prefix}${tstLabel(test)} *(${run.browser})*`);
+            lines.push(`${ti}- ${prefix}${display.test(test)} *(${run.browser})*`);
           }
         }
       }
@@ -230,7 +216,7 @@ export const renderMarkdown = (input: Report.RenderInput): string => {
           totalPassed > 0 ? `${totalPassed} passed` : "",
           totalSkipped > 0 ? `${totalSkipped} skipped` : "",
           `${allRuns.length} total`,
-          ms(totalMs),
+          display.duration(totalMs),
         ]
           .filter(Boolean)
           .join(" · ");
