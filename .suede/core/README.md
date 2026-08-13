@@ -60,6 +60,54 @@ SUEDE_PR_BACKEND=print bash .suede/core/open-pull-request.sh   # dry run
 
 ## What you run
 
+### [sync.sh](./sync.sh)
+
+Updates every piece of suede machinery this repository vendors, in one command,
+from `main`:
+
+```bash
+bash .suede/core/sync.sh
+```
+
+It finds them rather than being told — every subrepo whose remote is the suede
+library. In a fully initialized dependency that is four:
+
+| Path | What it is |
+| --- | --- |
+| `.suede/core` | this folder, the maintainer's tools |
+| `release/.suede/core` | the tools that ship to consumers |
+| `.github/workflows` | main's workflows |
+| `release/.github/workflows` | the release branch's workflows |
+
+`./release` is deliberately not one of them: it tracks *your* release branch and
+is published by [push-release.sh](./push-release.sh), not pulled.
+
+**Why this is a script and not four `git subrepo pull`s.** Two of the four
+record a `parent` that is not a commit in this repository's history, so a plain
+pull refuses:
+
+- The **workflow** subrepos were cloned into the *template* your repository was
+  created from. A repository made from a template starts a fresh history, so
+  their parent names a commit that does not exist here at all. (They live in the
+  template rather than being cloned at init because an Action is restricted in
+  what it may do to `.github/workflows`.) git-subrepo's own advice for this case
+  is to set the parent to an empty string, which is no advice at all.
+- A **`.suede/core` vendored onto the `release` branch** before the layout
+  changed records a parent that does exist, but is a release-branch commit and
+  so not an ancestor of `main`.
+
+Both get repaired the same way — point `parent` at a commit that *is* in this
+history, then pull — so `sync.sh` does it and retries instead of making you read
+the diagnostic. It takes git-subrepo's recommendation when the refusal carries
+one, and otherwise the last commit that touched the subrepo, which is the state
+on disk.
+
+It also clears the `subrepo/…` branch and `.git/tmp/subrepo/…` directory that
+pulling a subrepo nested inside `release/` leaves behind, because those stop the
+next `git subrepo push release` — the very next thing publishing does.
+
+Pass paths to limit it: `bash .suede/core/sync.sh .github/workflows`.
+
 ### [diff.sh](./diff.sh)
 
 Every release dependency that no longer matches the commit its `.gitrepo` names.
@@ -88,13 +136,22 @@ modifications you can neither revert nor upstream — because at that point a
 pointer no longer describes what your code actually depends on.
 
 ```bash
-bash .suede/core/vendor.sh <entry-or-folder> [--dest release/.suede/vendor/<name>]
+bash .suede/core/vendor.sh <entry-or-folder> [--dest release/<name>]
 ```
 
+The default destination is the top of `release/`, under the dependency's own
+name — the `remote` basename, not your `$repo$SEP`-prefixed entry name, since
+that prefix announces a release dependency at the *root*, which this folder
+stops being. `suede install --vendor` puts it in the same place under the same
+name.
+
 It prints the files referencing the old entry name; their imports need
-repointing. Afterwards its `.gitrepo` ships too, so consumers get a nested
-subrepo — a feature (they can still pull and push it independently) and a sharp
-edge.
+repointing. It also names any sibling the dependency's own manifest asks for
+that did not come with it — vendored code ships whole, so those have to be
+vendored too, and `check` fails until they are.
+
+Afterwards its `.gitrepo` ships too, so consumers get a nested subrepo — a
+feature (they can still pull and push it independently) and a sharp edge.
 
 ### [suede](./suede)
 
