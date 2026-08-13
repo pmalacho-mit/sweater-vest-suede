@@ -120,14 +120,15 @@ export const reportables = () => {
     : undefined;
 
   const matches = (text: string | undefined) =>
-    text && testFilter && testFilter.test(text);
+    Boolean(text && testFilter?.test(text));
+
+  const requested = ({ name, id, container }: TestSignature) =>
+    !testFilter || matches(name) || matches(id) || matches(container.category);
 
   const skip = (signature: TestSignature) => {
-    const { name, id, container } = signature;
-    const skipped = matches(name ?? id) || matches(container.category);
-    if (skipped)
-      tryPost({ type: "test-skipped", component, ...signature }, endpoint);
-    return Boolean(skipped);
+    if (requested(signature)) return false;
+    tryPost({ type: "test-skipped", component, ...signature }, endpoint);
+    return true;
   };
 
   return {
@@ -136,7 +137,8 @@ export const reportables = () => {
     complete,
     fail,
     /**
-     * Returns `true` if the test with the given `name` or `id` should be skipped based on the `testFilter`
+     * Returns `true` if a `testFilter` was given and this test's `name`, `id`
+     * and category all fail to match it. Without a filter, nothing is skipped.
      */
     skip,
   };
