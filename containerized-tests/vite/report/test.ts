@@ -132,19 +132,26 @@ describe("report", { concurrent: true }, () => {
     expect(stringArtifacts).toEqual(["before screenshot", "after screenshot"]);
   }, 90_000);
 
-  test("testFilter skips matching tests and records them as skipped", async () => {
-    // testFilter is an exclusion regex: tests whose name matches are skipped.
-    // Skipping only "fails" leaves "passes" and "captures" to run normally.
-    const { results } = await run({ testFilter: "fails" });
+  test("testFilter runs only matching tests, recording the rest as skipped", async () => {
+    // testFilter is an inclusion regex: only tests whose name, id or category
+    // matches it run. Matching "passes" leaves "fails" and "captures" skipped.
+    const { results } = await run({ testFilter: "passes" });
 
+    // Skipped tests are still reported, so the run accounts for all three.
     expect(results).toHaveLength(3);
 
-    const skipped = results.find((r) => r.name === "fails");
-    expect(skipped!.status).toBe("skipped");
-    expect(skipped!.durationMs).toBe(0);
-
     const ran = results.filter((r) => r.status !== "skipped");
-    expect(ran).toHaveLength(2);
+    expect(ran).toHaveLength(1);
+    expect(ran[0].name).toBe("passes");
+    expect(ran[0].status).toBe("passed");
+
+    // "fails" throws when its body runs, so recording it as skipped rather
+    // than failed is what proves the filter suppressed the body entirely.
+    for (const name of ["fails", "captures"]) {
+      const skipped = results.find((r) => r.name === name);
+      expect(skipped!.status).toBe("skipped");
+      expect(skipped!.durationMs).toBe(0);
+    }
   }, 90_000);
 
   test("intentional test failure does not prevent run from completing", async () => {

@@ -1,4 +1,8 @@
-FROM node:22-bookworm-slim
+# Overridden to a CA-trusting derivative when building inside a desolate
+# devcontainer — see `base()` in index.ts. The default is the stock image, so
+# this Dockerfile builds unchanged anywhere else.
+ARG BASE=node:22-bookworm-slim
+FROM ${BASE}
 
 ARG TEST_CASE=live-reload
 ARG HARNESS=single

@@ -11,6 +11,7 @@ import {
   sessionWithTabs,
 } from "../../../sweater-vest-suede.browser-control-container-suede";
 import { basename, relative, resolve } from "node:path";
+import { existsSync } from "node:fs";
 
 const harness = resolve(import.meta.dirname);
 const root = resolve(harness, "..", "..", "..");
@@ -115,6 +116,49 @@ const buildContextPaths = [
   "sweater-vest-suede.dockview-svelte-suede",
 ];
 
+/** The base image the Dockerfile builds from when nothing overrides it. */
+const STOCK_BASE = "node:22-bookworm-slim";
+
+/**
+ * Where `desolate` keeps the CA it intercepts TLS with. Its presence is what
+ * identifies one of its devcontainers.
+ */
+const DESOLATE = "/desolate-ca";
+
+/**
+ * The base image to build from — a CA-trusting derivative under `desolate`,
+ * the stock image everywhere else.
+ *
+ * All egress from a `desolate` devcontainer is intercepted by a proxy whose CA
+ * the stock image does not carry, so HTTPS inside a build step stalls in a
+ * retry loop instead of failing outright: `npm install` below simply never
+ * finishes. `desolate` derives a CA-trusting copy of every image named in
+ * `customizations.desolate.shadowImages` and retags the original to point at
+ * it, but BuildKit resolves a public tag against the registry and pins the
+ * upstream digest, so that retag is never consulted. Naming the derivative
+ * directly is what survives — it exists only on this daemon, so there is no
+ * registry answer to override it.
+ *
+ * This is test-only plumbing. Nothing here ships, and the Dockerfile still
+ * builds unchanged outside desolate.
+ */
+const base = async () => {
+  if (!existsSync(DESOLATE)) return STOCK_BASE;
+
+  const derived = `desolate-ca/${STOCK_BASE}`;
+  try {
+    await image.inspect(derived);
+    return derived;
+  } catch {
+    console.warn(
+      `${DESOLATE} exists but ${derived} does not — building from ${STOCK_BASE}. ` +
+        `If the build stalls in a network step, that is the proxy's certificate: ` +
+        `add "${STOCK_BASE}" to customizations.desolate.shadowImages and rebuild.`,
+    );
+    return STOCK_BASE;
+  }
+};
+
 /**
  * Builds the Vite Docker image for the given test case, streaming build output to stdout.
  * Throws if the build exits with a non-zero status.
@@ -130,7 +174,7 @@ export const buildViteImage = async ({
     dockerfile,
     version: "2", // ensure BuildKit features are available (e.g. COPY --exclude)
     include: buildContextPaths,
-    buildargs: { TEST_CASE, HARNESS },
+    buildargs: { TEST_CASE, HARNESS, BASE: await base() },
   });
   for await (const chunk of build.chunks()) process.stdout.write(chunk.data);
   const result = await build.complete();
