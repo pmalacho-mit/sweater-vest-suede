@@ -1,9 +1,9 @@
 # sweater-vest-suede
 
 > [!NOTE]
-> This is a [suede](https://github.com/pmalacho-mit/suede) dependency. 
+> This is a [suede](https://github.com/pmalacho-mit/suede) dependency.
 
-A Svelte 5 component testing library that renders tests alongside the components they test — in your running dev server, with no build step.
+A Svelte 5 component testing library that renders tests alongside the components they test (leveraging your existing dev server).
 
 Tests are written as `.test.svelte` files. Each file contains one or more `<Sweater>` components. A `<Sweater>` pairs a **vest snippet** (the rendered component under test) with a **body function** (the async test logic). Tests run live in the browser and display their results in a dockview grid panel.
 
@@ -104,14 +104,14 @@ A config group can also be written as a self-closing `<Sweater config />` with n
 
 #### `<Sweater config>` props
 
-| Prop          | Type                          | Description                                                                                              |
-| ------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `config`      | `true`                        | Marks this `<Sweater>` as a group rather than a test. Required.                                          |
-| `orientation` | `"horizontal" \| "vertical"`  | Direction new panels are added in. Default: `"horizontal"`.                                              |
-| `category`    | `string`                      | Labels the group in the report, and is a filter target for `--test`.                                     |
-| `mode`        | `"parallel" \| "serial"`      | Default scheduling for tests in the group. Individual tests may override it.                             |
-| `class`       | `string`                      | Class applied to the group's container element.                                                          |
-| `style`       | `string`                      | Inline style applied to the group's container element.                                                   |
+| Prop          | Type                         | Description                                                                  |
+| ------------- | ---------------------------- | ---------------------------------------------------------------------------- |
+| `config`      | `true`                       | Marks this `<Sweater>` as a group rather than a test. Required.              |
+| `orientation` | `"horizontal" \| "vertical"` | Direction new panels are added in. Default: `"horizontal"`.                  |
+| `category`    | `string`                     | Labels the group in the report, and is a filter target for `--test`.         |
+| `mode`        | `"parallel" \| "serial"`     | Default scheduling for tests in the group. Individual tests may override it. |
+| `class`       | `string`                     | Class applied to the group's container element.                              |
+| `style`       | `string`                     | Inline style applied to the group's container element.                       |
 
 ---
 
