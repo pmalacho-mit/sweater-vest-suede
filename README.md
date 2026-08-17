@@ -9,7 +9,7 @@ To see the installable source code, please checkout the [release branch](https:/
 ## Installation
 
 ```bash
-bash <(curl https://suede.sh/install/release) --repo pmalacho-mit/sweater-vest-suede
+bash <(curl https://suede.sh/install/release) --repo pmalacho-mit/sweater-vest-suede --dev
 ```
 
 <details>
