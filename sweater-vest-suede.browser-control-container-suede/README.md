@@ -1,5 +1,8 @@
 # Browser Control
 
+> [!NOTE]
+> This is a [suede](https://github.com/pmalacho-mit/suede) dependency.
+
 This package ships a Docker image with Playwright installed and `playwright-cli`
 available on `PATH` inside the container.
 
