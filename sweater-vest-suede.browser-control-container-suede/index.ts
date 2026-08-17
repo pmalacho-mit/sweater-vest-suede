@@ -8,6 +8,11 @@ import CommandStream, {
   type CompletedResult,
 } from "../browser-control-container-suede.programmatic-docker-suede/CommandStream.js";
 import defaults from "./defaults.js";
+import { certificates } from "./certificates.js";
+import { encode as encodeForwards, type Forwarded } from "./forward.js";
+
+export { certificates } from "./certificates.js";
+export type { Forward, Forwarded } from "./forward.js";
 
 /**
  * Currently, `chrome` is not supported on Apple Silicon due to Playwright's bundled Chromium not supporting ARM64 Linux.
@@ -30,8 +35,36 @@ type Options = Partial<
     log: boolean;
     network: string;
     skipIfRunning?: boolean;
+    /**
+     * Ports to make reachable on the browser's own loopback address, so pages
+     * served from them count as trustworthy origins. See {@link Forward}.
+     */
+    forward: Forwarded[];
+    /**
+     * Certificates the browser should trust, as paths on this machine.
+     * {@link certificates.local} finds the ones this machine already trusts.
+     */
+    trustCertificates: string[];
   }
 >;
+
+const forwardedBy = (info: { Config?: { Env?: string[] | null } }) =>
+  (info.Config?.Env ?? [])
+    .find((entry) => entry.startsWith("FORWARD="))
+    ?.slice("FORWARD=".length) ?? "";
+
+/**
+ * The id of the running container named `name`, when it already forwards what
+ * is being asked for and so can be reused; otherwise nothing.
+ *
+ * The id, rather than a boolean, because reusing resolves the handle by it —
+ * see {@link buildAndRun}.
+ */
+const reusableId = async (name: string, forward: string) => {
+  if (!(await container.isRunning(name))) return undefined;
+  const info = await container.inspect(name);
+  return forwardedBy(info) === forward ? info.Id : undefined;
+};
 
 /**
  *
@@ -43,16 +76,41 @@ type Options = Partial<
 export const buildAndRun = async (BROWSER: Browser, details?: Options) => {
   const name = (details?.container ?? defaults.container)(BROWSER);
 
-  if (details?.skipIfRunning && (await container.isRunning(name))) {
+  /**
+   * `/forward.mjs` is what serves the forwards, and it is the default command
+   * rather than something the container does on its own. Replacing the command
+   * without running it would leave `FORWARD` set and nothing acting on it —
+   * forwards would silently do nothing, and a container in that state still
+   * looks correctly configured to {@link reusableId}.
+   */
+  if (details?.forward?.length && details?.command)
+    throw new Error(
+      "A custom `command` must run /forward.mjs itself to serve `forward`; " +
+        "otherwise the forwarded ports are never listened on.",
+    );
+
+  const forward = await encodeForwards(details?.forward ?? [], details?.network);
+  const trusted = details?.trustCertificates ?? [];
+
+  const reusable = details?.skipIfRunning
+    ? await reusableId(name, forward)
+    : undefined;
+
+  if (reusable) {
     if (details?.log)
       console.log(
         `Reusing existing running container for ${BROWSER} (${name})`,
       );
-    // container.resolve returns a Dockerode.Container handle for an existing container,
-    // matching the return type of container.run below.
-    return container.resolve(name);
+    await certificates.install(name, trusted);
+    /**
+     * Resolved by id rather than by name, so the handle this returns reports
+     * the same `id` that `container.run` below does. Resolving by name would
+     * hand back a handle whose `id` is the name, which works against the API
+     * but does not compare equal to the one a freshly started container has.
+     */
+    return container.resolve(reusable);
   }
-  
+
   const tag = (details?.image ?? defaults.image)(BROWSER);
 
   if (details?.log)
@@ -77,7 +135,16 @@ export const buildAndRun = async (BROWSER: Browser, details?: Options) => {
   const network = details?.network ?? (await devcontainer.network());
 
   const command = details?.command ?? defaults.command;
-  return container.run({ network, name, command, image: tag });
+  const started = await container.run({
+    network,
+    name,
+    command,
+    image: tag,
+    env: { FORWARD: forward },
+  });
+
+  await certificates.install(name, trusted);
+  return started;
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
